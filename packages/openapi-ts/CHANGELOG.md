@@ -1,5 +1,43 @@
 # @hey-api/openapi-ts
 
+## 0.93.0
+
+### Minor Changes
+
+- **plugin(valibot)**: remove `enum.nodes.nullable` resolver node ([#3396](https://github.com/hey-api/openapi-ts/pull/3396)) ([`ea6f386`](https://github.com/hey-api/openapi-ts/commit/ea6f3865c8e381b3160e1526435c4522f0dc6aa4)) by [@mrlubos](https://github.com/mrlubos)
+
+### Removed resolver node
+
+Valibot plugin no longer exposes the `enum.nodes.nullable` node. It was refactored so that nullable values are handled outside of resolvers.
+
+- **plugin(zod)**: remove `enum.nodes.nullable` resolver node ([#3398](https://github.com/hey-api/openapi-ts/pull/3398)) ([`737730c`](https://github.com/hey-api/openapi-ts/commit/737730c9c6450c60a81a8949259336e790e9b4f4)) by [@mrlubos](https://github.com/mrlubos)
+
+### Removed resolver node
+
+Zod plugin no longer exposes the `enum.nodes.nullable` node. It was refactored so that nullable values are handled outside of resolvers.
+
+### Patch Changes
+
+- **parser(patch)**: support callback for `patch.schemas` ([#3415](https://github.com/hey-api/openapi-ts/pull/3415)) ([`e494f4d`](https://github.com/hey-api/openapi-ts/commit/e494f4dd828167a0096a0a488b222a013f911055)) by [@copilot-swe-agent](https://github.com/apps/copilot-swe-agent)
+
+- **client**: expose `onRequest` in RequestOptions for SSE request interception ([#3392](https://github.com/hey-api/openapi-ts/pull/3392)) ([`8fc4681`](https://github.com/hey-api/openapi-ts/commit/8fc46819d5df1d4a353be5ae7cd45a8c669a5d7e)) by [@copilot-swe-agent](https://github.com/apps/copilot-swe-agent)
+
+- **parser**: add `patch.input` and shorthand `patch()` option for full specification transformations ([#3411](https://github.com/hey-api/openapi-ts/pull/3411)) ([`ba9f893`](https://github.com/hey-api/openapi-ts/commit/ba9f893d71b959721e177717ae85fce34d697002)) by [@copilot-swe-agent](https://github.com/apps/copilot-swe-agent)
+
+- **plugin(zod)**: use `.nullable()` and `.nullish()` methods ([#3398](https://github.com/hey-api/openapi-ts/pull/3398)) ([`737730c`](https://github.com/hey-api/openapi-ts/commit/737730c9c6450c60a81a8949259336e790e9b4f4)) by [@mrlubos](https://github.com/mrlubos)
+
+- **parser(transforms)**: add `schemaName` transform ([#3416](https://github.com/hey-api/openapi-ts/pull/3416)) ([`4b9d032`](https://github.com/hey-api/openapi-ts/commit/4b9d032c6a144fa79cedc28e077782b9d67803a3)) by [@copilot-swe-agent](https://github.com/apps/copilot-swe-agent)
+
+- **plugin(valibot)**: use `.nullable()` and `.nullish()` methods ([#3396](https://github.com/hey-api/openapi-ts/pull/3396)) ([`ea6f386`](https://github.com/hey-api/openapi-ts/commit/ea6f3865c8e381b3160e1526435c4522f0dc6aa4)) by [@mrlubos](https://github.com/mrlubos)
+
+- **parser(patch)**: support callback for `patch.operations` ([#3420](https://github.com/hey-api/openapi-ts/pull/3420)) ([`e1cd970`](https://github.com/hey-api/openapi-ts/commit/e1cd970e4f3028b29ace44a58b2d2cae18a6c45f)) by [@copilot-swe-agent](https://github.com/apps/copilot-swe-agent)
+
+- **parser**: add support for non-string discriminator property types ([#3385](https://github.com/hey-api/openapi-ts/pull/3385)) ([`dd0be9c`](https://github.com/hey-api/openapi-ts/commit/dd0be9c6ca93552c3367ca8e8ba785381295a112)) by [@SipanP](https://github.com/SipanP)
+
+### Updated Dependencies:
+
+- @hey-api/shared@0.2.1
+
 ## 0.92.4
 
 ### Patch Changes
