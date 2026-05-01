@@ -228,6 +228,15 @@ If your pipeline forwards extra flags (e.g. `EXTRA_OPENPM="-- --base=/foo"`
 or similar), `npm run build -- <flags>` appends them to the trailing
 `vite build` invocation, exactly as before.
 
+> **Why is `pnpm build` slow on a cold cache?** It is dominated by
+> `vue-tsc --build --force` walking the full Redfish SDK type tree —
+> roughly 5 minutes on a quiet macOS arm64 host. Warm-cache rebuilds
+> drop to ~0.3 s. See
+> [`docs/typecheck-performance.md`](docs/typecheck-performance.md) for
+> the breakdown, a benchmark of the community tsgo-based alternatives
+> (`golar`, `vue-tsgo`), and the upstream tracking checklist that
+> governs when a switch becomes safe.
+
 ### Optional: offline regeneration
 
 If you want `pnpm openapi-ts:scoped` itself to be network-free in CI, vendor
