@@ -176,15 +176,16 @@ helpers per typed operation. For Redfish `GET /redfish/v1/Chassis` they
 look like this:
 
 ```ts
-// generated
-export const getChassisQueryKey = (options?: Options<GetChassisData>) =>
-  createQueryKey('getChassis', options);
+// (sketch of the generated output — see src/client/@tanstack/vue-query.gen.ts)
+export const getChassisQueryKey = (opts) => createQueryKey('getChassis', opts);
 
-export const getChassisOptions = (options?: Options<GetChassisData>) =>
+export const getChassisOptions = (opts) =>
   queryOptions({
-    queryFn: ({ queryKey, signal }) =>
-      getChassis({ ...options, ...(queryKey[0] as Options), signal }).then(({ data }) => data),
-    queryKey: getChassisQueryKey(options),
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getChassis({ ...queryKey[0], signal });
+      return data;
+    },
+    queryKey: getChassisQueryKey(opts),
   });
 ```
 
@@ -199,13 +200,17 @@ property of the operation, not a property of the call.
 
 The common query-key patterns the engine has to handle:
 
-- `useQuery(getServiceRootOptions())`
-  → `[{ _id: 'getServiceRoot', baseURL }]`
-- `useQuery(getChassisOptions())`
-  → `[{ _id: 'getChassis', baseURL }]`
-- `useQuery(getChassisByIdOptions({ path: { ChassisId: 'BMC_0' } }))`
-  → `[{ _id: 'getChassisById', baseURL,
- path: { ChassisId: 'BMC_0' } }]`
+```ts
+useQuery(getServiceRootOptions());
+// → [{ _id: 'getServiceRoot', baseURL }]
+
+useQuery(getChassisOptions());
+// → [{ _id: 'getChassis', baseURL }]
+
+useQuery(getChassisByIdOptions({ path: { ChassisId: 'BMC_0' } }));
+// → [{ _id: 'getChassisById', baseURL,
+//      path: { ChassisId: 'BMC_0' } }]
+```
 
 To bridge from a key like the third one to the concrete URL
 `/redfish/v1/Chassis/BMC_0`, the engine consults a small per-app
@@ -303,8 +308,8 @@ queryClient.invalidateQueries({
     const key = query.queryKey[0] as KeyShape;
     const template = key?._id && REDFISH_OPERATION_URLS[key._id];
     if (!template) return false;
-    const concreteUrl = resolveUrlTemplate(template, key.path);
-    return concreteUrl === originPath || originPath.startsWith(concreteUrl + '/');
+    const concrete = resolveUrlTemplate(template, key.path);
+    return concrete === originPath || originPath.startsWith(`${concrete}/`);
   },
 });
 ```

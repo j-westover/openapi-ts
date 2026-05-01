@@ -280,13 +280,13 @@ export type ResolutionStep = {
  * @version 1.7.4
  */
 export const TaskState = {
+  CANCELLED: 'Cancelled',
+  CANCELLING: 'Cancelling',
   COMPLETED: 'Completed',
   EXCEPTION: 'Exception',
-  CANCELLING: 'Cancelling',
   INTERRUPTED: 'Interrupted',
-  CANCELLED: 'Cancelled',
-  NEW: 'New',
   KILLED: 'Killed',
+  NEW: 'New',
   PENDING: 'Pending',
   RUNNING: 'Running',
   SERVICE: 'Service',

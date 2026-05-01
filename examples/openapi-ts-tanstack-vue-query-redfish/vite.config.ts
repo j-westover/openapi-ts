@@ -36,9 +36,8 @@ const config: UserConfig = {
   server: bmcTarget
     ? {
         proxy: {
-          
           // Standard JSON traffic.
-'/redfish': {
+          '/redfish': {
             changeOrigin: true,
             configure: (proxy) => {
               proxy.on('proxyReq', (proxyReq) => {
@@ -52,9 +51,9 @@ const config: UserConfig = {
             secure: false,
             target: bmcTarget,
           } satisfies ProxyOptions,
-          
+
           // SSE: keep the connection open, disable buffering / encoding.
-'/redfish/v1/EventService/SSE': {
+          '/redfish/v1/EventService/SSE': {
             changeOrigin: true,
             configure: (proxy) => {
               proxy.on('proxyReq', (proxyReq) => {
