@@ -357,9 +357,14 @@ export function mockRedfishPlugin(): Plugin {
           if (!token || !sessions.has(token)) {
             return json(res, 401, { error: { message: 'Unauthorized' } });
           }
-          const members = [...sessions.values()].map((s) => ({
-            '@odata.id': `/redfish/v1/SessionService/Sessions/${s.id}`,
-          }));
+          // `.forEach` rather than `[...sessions.values()].map(...)`
+          // sidesteps the typescript-eslint IDE warning about Map
+          // iterators needing `--downlevelIteration` (the actual Node
+          // 24 target supports it; the warning is editor-only).
+          const members: Array<{ '@odata.id': string }> = [];
+          sessions.forEach((s) => {
+            members.push({ '@odata.id': `/redfish/v1/SessionService/Sessions/${s.id}` });
+          });
           return json(res, 200, {
             '@odata.id': '/redfish/v1/SessionService/Sessions',
             Members: members,
