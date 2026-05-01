@@ -21,6 +21,7 @@ import {
   DEFAULT_INVALIDATION_RULES,
   extractOriginOfCondition,
   isBufferExceededEvent,
+  isHeartbeatEvent,
   isQueryAncestorOf,
   isQueryUnder,
   isQueryUrlExactly,
@@ -92,6 +93,11 @@ function handleEvent(
   event: EventRecord,
   rules: readonly SseInvalidationRule[],
 ): void {
+  // `HeartbeatEvent.*` is a connection-health ping (and the registry
+  // the SSE composable uses to "prime" bmcweb's stream) — it never
+  // represents a resource change, so do not invalidate anything.
+  if (isHeartbeatEvent(event)) return;
+
   // Coarsest signal — buffer overflow trumps everything else.
   if (isBufferExceededEvent(event)) {
     void queryClient.invalidateQueries();

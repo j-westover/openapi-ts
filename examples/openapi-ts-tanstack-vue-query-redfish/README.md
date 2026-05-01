@@ -37,19 +37,44 @@ VITE_BMC_URL=https://your-bmc.example.com pnpm dev
 
 ## Environment variables
 
-- **`VITE_BMC_URL`** _(runtime — `pnpm dev` / `pnpm preview`)_
-  If set, requests to `/redfish` are proxied to this base URL. If
-  unset, the in-process mock plugin from `mock-redfish.ts` answers
-  every request so the example boots end-to-end with no real BMC.
-- **`REDFISH_SCOPE`** _(codegen — `pnpm openapi-ts_`)*
-Picks which client to generate. Unset (or `full`) writes the entire
-DMTF surface to gitignored `src/client.full/`for IDE / agent type
-discovery;`scoped`writes only the operations listed in`SCOPED_OPERATIONS`to the committed`src/client/`. The
-`pnpm openapi-ts:scoped` script sets this for you.
-- **`REDFISH_OPENAPI_URL`** _(codegen — `pnpm openapi-ts_`)*
-OpenAPI spec URL (or local path) used when running codegen.
-Defaults to the latest published DMTF spec; point it at
-`./specs/redfish.yaml` to make codegen offline-reproducible.
+Two scopes:
+
+- **Runtime — read by Vite (`pnpm dev` / `pnpm preview`).**
+  Vite auto-loads `.env`, `.env.local`, `.env.[mode]`, and
+  `.env.[mode].local` from the example root. Putting a value in a
+  gitignored `.env.development.local` is the recommended way to set
+  these for local development; the shell still works as a fallback.
+  - **`VITE_BMC_URL`** — if set, the Vite dev proxy forwards every
+    `/redfish/...` request to this base URL (HSTS and
+    content-encoding stripped, SSE held open). If unset, the
+    in-process mock plugin from `mock-redfish.ts` answers every
+    request so the example boots end-to-end with no real BMC. The app
+    itself always uses relative URLs in dev so that the proxy
+    intercepts them; in production builds the same `VITE_BMC_URL` is
+    used directly as the axios baseURL.
+
+- **Codegen — read by the `openapi-ts` CLI (`pnpm openapi-ts*`).**
+  These run as plain Node and do **not** auto-load `.env*` files. Set
+  them on the command line, in the shell environment, or via a tool
+  like `dotenv-cli` if you want to share `.env.development.local`
+  with codegen.
+  - **`REDFISH_SCOPE`** — picks which client to generate. Unset (or
+    `full`) writes the entire DMTF surface to gitignored
+    `src/client.full/` for IDE / agent type discovery; `scoped`
+    writes only the operations listed in `SCOPED_OPERATIONS` to the
+    committed `src/client/`. The `pnpm openapi-ts:scoped` script
+    sets this for you.
+  - **`REDFISH_OPENAPI_URL`** — OpenAPI spec URL (or local path)
+    used when running codegen. Defaults to the latest published DMTF
+    spec; point it at `./specs/redfish.yaml` to make codegen
+    offline-reproducible.
+
+A typical `.env.development.local` (gitignored, in the example root)
+looks like:
+
+```dotenv
+VITE_BMC_URL=https://your-bmc-ip
+```
 
 ## Project layout
 

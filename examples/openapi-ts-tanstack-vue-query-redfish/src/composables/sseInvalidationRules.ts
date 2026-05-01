@@ -85,9 +85,20 @@ export const REDFISH_OPERATION_URLS: Readonly<Record<string, string>> = {
 };
 
 const BUFFER_EXCEEDED_MARKER = 'EventBufferExceeded';
+const HEARTBEAT_REGISTRY_PREFIX = 'HeartbeatEvent.';
 
 export function isBufferExceededEvent(event: EventRecord): boolean {
   return event.MessageId?.includes(BUFFER_EXCEEDED_MARKER) ?? false;
+}
+
+/**
+ * `HeartbeatEvent.*` messages are connection-health pings (and the
+ * registry the SSE composable uses to "prime" bmcweb's stream); they
+ * never represent a resource change and should never trigger cache
+ * invalidation.
+ */
+export function isHeartbeatEvent(event: EventRecord): boolean {
+  return event.MessageId?.startsWith(HEARTBEAT_REGISTRY_PREFIX) ?? false;
 }
 
 export function isResourceLifecycleEvent(event: EventRecord): boolean {

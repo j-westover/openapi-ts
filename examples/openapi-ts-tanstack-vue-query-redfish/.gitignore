@@ -19,6 +19,10 @@ coverage
 # CI and release builds use the scoped client at src/client/ instead.
 src/client.full/
 
+# Scratch space for raw BMC dumps (e.g. ChassisCollection.json) used
+# while authoring the mock — not part of the example.
+temp/
+
 /cypress/videos/
 /cypress/screenshots/
 

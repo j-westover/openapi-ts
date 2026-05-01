@@ -1,13 +1,15 @@
-import { configDefaults, defineProject, mergeConfig } from 'vitest/config';
+import { fileURLToPath, URL } from 'node:url';
 
-import viteConfig from './vite.config';
+import { configDefaults, defineProject } from 'vitest/config';
 
-export default mergeConfig(
-  viteConfig,
-  defineProject({
-    test: {
-      environment: 'jsdom',
-      exclude: [...configDefaults.exclude, 'e2e/**'],
+export default defineProject({
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
-  }),
-);
+  },
+  test: {
+    environment: 'jsdom',
+    exclude: [...configDefaults.exclude, 'e2e/**'],
+  },
+});

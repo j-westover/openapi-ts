@@ -35,7 +35,13 @@ export function configureRedfishClient({
   router,
 }: ConfigureRedfishClientOptions): void {
   client.setConfig({
-    baseURL: import.meta.env.VITE_BMC_URL || '',
+    // In dev, baseURL stays empty so requests are relative to the
+    // current origin and Vite's proxy (configured from `VITE_BMC_URL`
+    // in `.env.development.local` or the shell) routes them to the
+    // BMC. In production builds there is no proxy, so we read
+    // `VITE_BMC_URL` directly — assuming the BMC permits CORS or the
+    // example is served from the BMC's own origin.
+    baseURL: import.meta.env.DEV ? '' : import.meta.env.VITE_BMC_URL || '',
   });
 
   client.instance.interceptors.request.use((config) => {
