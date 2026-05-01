@@ -10,6 +10,7 @@ mock — see the project README's _Getting started_ section).
 | `dashboard.png`      | The main dashboard at rest — header, Service Root, Systems, Chassis, Live Events. |
 | `health-tooltip.png` | Per-component health grid (`TelemetryService/MetricReports` fallback).            |
 | `power-dropdown.png` | Power menu with `ActionInfo`-gated `AllowableValues`.                             |
+| `power-cycle.gif`    | Animated `On → PoweringOff → Off → PoweringOn → On` (captured against the mock).  |
 
 ## Regenerating
 
@@ -85,16 +86,30 @@ Health badge, and opens (but does not click into) the Power dropdown.
 No action button is ever invoked, so it is safe to point at production
 hardware.
 
-## Power-cycle demo (not yet captured)
+## Power-cycle demo (mock-mode only)
 
-A short animated GIF of the `On → PoweringOff → Off → PoweringOn → On`
-cycle would be a useful addition to the README. Capturing it requires
-clicking the `Graceful Shutdown` and `Power On` actions — destructive
-on real hardware. The recommended workflow is:
+`power-cycle.gif` is captured against the in-process mock — the
+script clicks `Graceful Shutdown` and `Power On` in sequence, which
+is **destructive on real hardware**. To regenerate:
 
 1. Disable `VITE_BMC_URL` in `.env.development.local` (or unset it)
-   so the in-process mock takes over.
+   so the mock plugin takes over.
 2. Restart the dev server (`pnpm dev:fresh`).
-3. Run a slightly extended capture script that drives the action
-   buttons and assembles the per-frame screenshots into a GIF via a
-   pure-JS encoder (`gif-encoder-2`) — `ffmpeg` is _not_ required.
+3. Run a capture script in the same scratch directory as the
+   read-only one above. The reference implementation walks the
+   header strip through five visible states (`On`, `PoweringOff`
+   pulse, `Off`, `PoweringOn` blink, back to `On`), captures
+   ~16 frames at 600–700 ms intervals, and assembles them into a
+   GIF via `gif-encoder-2` — no `ffmpeg` required:
+
+```bash
+# In the same /tmp/redfish-capture working dir as above:
+npm install --no-save gif-encoder-2 pngjs
+node capture-demo.mjs   # drives Graceful Shutdown + Power On
+cp out/demo.gif $OLDPWD/.../docs/screenshots/power-cycle.gif
+```
+
+The full `capture-demo.mjs` is intentionally kept out of the example's
+`package.json` (heavyweight Playwright + pure-JS GIF encoder
+dependencies that are never needed at runtime). Everything it does
+exercises the same mock surface the unit tests cover.

@@ -26,6 +26,20 @@ The example exercises:
 | ![Health tooltip](docs/screenshots/health-tooltip.png)                                    | ![Power dropdown](docs/screenshots/power-dropdown.png)  |
 | _Health rollup with the per-component grid pulled from `TelemetryService/MetricReports`._ | _Power dropdown gated on `ActionInfo.AllowableValues`._ |
 
+### Power-cycle demo
+
+![Power cycle: On → PoweringOff → Off → PoweringOn → On](docs/screenshots/power-cycle.gif)
+
+The icon walks through the full state machine: solid green (`On`) →
+green ring with the slow opacity pulse (`PoweringOff` — graceful
+shutdown can take minutes, polling is intentionally **off** in this
+state) → solid red ring (`Off`) → green blinking power-button glyph
+(`PoweringOn` — polling kicks in every 2 s to compensate for BMCs that
+do not publish a settle event) → back to solid green (`On`). See
+[`useManagedSystem.ts`](src/composables/useManagedSystem.ts) for the
+polling contract and [`PowerIcon.vue`](src/components/AppHeader/PowerIcon.vue)
+for the icon-state taxonomy.
+
 See [`docs/screenshots/README.md`](docs/screenshots/README.md) for the
 regeneration recipe.
 
