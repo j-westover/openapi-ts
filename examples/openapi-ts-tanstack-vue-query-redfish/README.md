@@ -182,7 +182,7 @@ The build itself never reads the spec; only generation does.
 ## SSE-driven Vue Query cache invalidation
 
 The example implements the runtime contract documented in
-[`../../docs/designs/vue-query-sse-cache-invalidation.md`](../../docs/designs/vue-query-sse-cache-invalidation.md):
+[`docs/designs/vue-query-sse-cache-invalidation.md`](docs/designs/vue-query-sse-cache-invalidation.md):
 
 1. Every event landing on `/redfish/v1/EventService/SSE` flows through
    `parseSSEEvent` → SSE Pinia store → `useSSEQueryInvalidation`

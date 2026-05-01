@@ -10,10 +10,11 @@
  *     `GET /redfish/*` response into the cache.
  *
  * The third interceptor is the "dual cache population" half of the
- * SSE → Vue Query cache invalidation contract documented at
- * `docs/designs/vue-query-sse-cache-invalidation.md`. It is a no-op
- * unless a Vue Query hook is already mounted for the same URL, so it
- * is safe to install unconditionally.
+ * SSE → Vue Query cache invalidation contract documented in
+ * `../docs/designs/vue-query-sse-cache-invalidation.md` (relative to
+ * this example's project root). It is a no-op unless a Vue Query hook
+ * is already mounted for the same URL, so it is safe to install
+ * unconditionally.
  */
 
 import type { QueryClient } from '@tanstack/vue-query';

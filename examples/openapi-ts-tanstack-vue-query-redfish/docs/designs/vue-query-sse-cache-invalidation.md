@@ -47,15 +47,13 @@ that do not appear in `OriginOfCondition`.
   `EventService.SSE`, the `OriginOfCondition` field, and the
   `MessageId` registry pattern (`<RegistryPrefix>.<MajorMinor>.<MessageKey>`).
   <https://www.dmtf.org/dsp/DSP0266>
-- **Reference implementation** — the
-  `examples/openapi-ts-tanstack-vue-query-redfish/` directory of this
-  monorepo demonstrates the SSE composable, the `client.sse.get(...)`
-  fetch+`ReadableStream` consumer that allows custom auth headers, and
-  the Pinia store that mirrors connection state for the UI. The
-  `EventBufferExceeded` handler is wired to a project-wide
-  `queryClient.invalidateQueries()` as the coarse-grained fallback;
-  this design fills in the per-event behaviour that sits in front of
-  it.
+- **Reference implementation** — the rest of this project (the
+  `openapi-ts-tanstack-vue-query-redfish` example, of which this
+  document is part) demonstrates the SSE composable, the
+  `client.sse.get(...)` fetch+`ReadableStream` consumer that allows
+  custom auth headers, the Pinia store that mirrors connection state
+  for the UI, and the `useSSEQueryInvalidation` engine that this
+  design specifies.
 - **Related design (codegen)** —
   [`openapi-integration-webui-vue.md`][openapi-integration] covers
   _what_ the typed SDK looks like, _where_ it lives, and the two-mode
@@ -356,15 +354,23 @@ type SseInvalidationRule = {
 
 const RULES: ReadonlyArray<SseInvalidationRule> = [
   {
+    // Task lifecycle — refresh the task list and the service header.
+    invalidate: ['/redfish/v1/TaskService'],
     messageIdPattern: /^TaskEvent\./,
-    invalidate: ['/redfish/v1/TaskService', '/redfish/v1/TaskService/Tasks'],
   },
   {
+    // Firmware updates — the OriginOfCondition is usually the FW
+    // image; we surface the listing so progress is visible.
+    invalidate: ['/redfish/v1/UpdateService'],
     messageIdPattern: /^Update\./,
-    invalidate: ['/redfish/v1/UpdateService', '/redfish/v1/UpdateService/FirmwareInventory'],
   },
 ];
 ```
+
+A real `invalidate` array can list as many URL prefixes as needed
+(the shipped table also includes `/redfish/v1/TaskService/Tasks`,
+`/redfish/v1/UpdateService/FirmwareInventory`, etc.). One prefix per
+rule is enough to communicate the shape.
 
 Vendor extensions land in this table without touching the engine.
 

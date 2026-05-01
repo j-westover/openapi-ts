@@ -8,8 +8,8 @@
  * coherent with the BMC without polling.
  *
  * The contract this implements is documented at
- * `docs/designs/vue-query-sse-cache-invalidation.md` in the
- * `@hey-api/openapi-ts` monorepo.
+ * `docs/designs/vue-query-sse-cache-invalidation.md` (relative to this
+ * example's project root).
  */
 
 import type { QueryClient } from '@tanstack/vue-query';

@@ -3,8 +3,8 @@
  * invalidation engine.
  *
  * The contract this implements is documented at
- * `docs/designs/vue-query-sse-cache-invalidation.md` in the
- * `@hey-api/openapi-ts` monorepo (the parent of this example).
+ * `docs/designs/vue-query-sse-cache-invalidation.md` (relative to this
+ * example's project root).
  *
  * The engine resolves each Redfish event in two passes:
  *
