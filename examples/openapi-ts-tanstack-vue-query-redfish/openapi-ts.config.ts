@@ -37,11 +37,16 @@ import {
 const SCOPED_OPERATIONS = [
   'GET /redfish/v1',
   'GET /redfish/v1/Systems',
+  'GET /redfish/v1/Systems/{ComputerSystemId}',
+  'POST /redfish/v1/Systems/{ComputerSystemId}/Actions/ComputerSystem.Reset',
   'GET /redfish/v1/Chassis',
   'GET /redfish/v1/SessionService/Sessions',
   'POST /redfish/v1/SessionService/Sessions',
   'DELETE /redfish/v1/SessionService/Sessions/{SessionId}',
   'POST /redfish/v1/EventService/Actions/EventService.SubmitTestEvent',
+  'GET /redfish/v1/AccountService/Accounts/{ManagerAccountId}',
+  'GET /redfish/v1/TelemetryService/MetricReports',
+  'GET /redfish/v1/TelemetryService/MetricReports/{MetricReportId}',
   // The SSE stream at `/redfish/v1/EventService/SSE` is not declared in the
   // spec — it is consumed via `client.sse.get(...)`.
 ] as const;

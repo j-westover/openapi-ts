@@ -73,7 +73,7 @@ const login = useMutation({
       return;
     }
 
-    authStore.setSession(token, location);
+    authStore.setSession(token, location, username.value);
     void router.push('/');
   },
 });

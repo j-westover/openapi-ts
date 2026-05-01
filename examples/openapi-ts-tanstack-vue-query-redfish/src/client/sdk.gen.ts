@@ -6,6 +6,9 @@ import type {
   DeleteSessionServiceSessionByIdData,
   DeleteSessionServiceSessionByIdErrors,
   DeleteSessionServiceSessionByIdResponses,
+  GetAccountServiceAccountByIdData,
+  GetAccountServiceAccountByIdErrors,
+  GetAccountServiceAccountByIdResponses,
   GetChassisData,
   GetChassisErrors,
   GetChassisResponses,
@@ -15,15 +18,27 @@ import type {
   GetSessionServiceSessionsData,
   GetSessionServiceSessionsErrors,
   GetSessionServiceSessionsResponses,
+  GetSystemByIdData,
+  GetSystemByIdErrors,
+  GetSystemByIdResponses,
   GetSystemsData,
   GetSystemsErrors,
   GetSystemsResponses,
+  GetTelemetryServiceMetricReportByIdData,
+  GetTelemetryServiceMetricReportByIdErrors,
+  GetTelemetryServiceMetricReportByIdResponses,
+  GetTelemetryServiceMetricReportsData,
+  GetTelemetryServiceMetricReportsErrors,
+  GetTelemetryServiceMetricReportsResponses,
   PostEventServiceSubmitTestEventData,
   PostEventServiceSubmitTestEventErrors,
   PostEventServiceSubmitTestEventResponses,
   PostSessionServiceSessionsData,
   PostSessionServiceSessionsErrors,
   PostSessionServiceSessionsResponses,
+  PostSystemResetData,
+  PostSystemResetErrors,
+  PostSystemResetResponses,
 } from './types.gen';
 
 export type Options<
@@ -49,6 +64,19 @@ export const getServiceRoot = <ThrowOnError extends boolean = false>(
   (options?.client ?? client).get<GetServiceRootResponses, GetServiceRootErrors, ThrowOnError>({
     responseType: 'json',
     url: '/redfish/v1',
+    ...options,
+  });
+
+export const getAccountServiceAccountById = <ThrowOnError extends boolean = false>(
+  options: Options<GetAccountServiceAccountByIdData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    GetAccountServiceAccountByIdResponses,
+    GetAccountServiceAccountByIdErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/redfish/v1/AccountService/Accounts/{ManagerAccountId}',
     ...options,
   });
 
@@ -127,5 +155,53 @@ export const getSystems = <ThrowOnError extends boolean = false>(
   (options?.client ?? client).get<GetSystemsResponses, GetSystemsErrors, ThrowOnError>({
     responseType: 'json',
     url: '/redfish/v1/Systems',
+    ...options,
+  });
+
+export const getSystemById = <ThrowOnError extends boolean = false>(
+  options: Options<GetSystemByIdData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<GetSystemByIdResponses, GetSystemByIdErrors, ThrowOnError>({
+    responseType: 'json',
+    url: '/redfish/v1/Systems/{ComputerSystemId}',
+    ...options,
+  });
+
+export const postSystemReset = <ThrowOnError extends boolean = false>(
+  options: Options<PostSystemResetData, ThrowOnError>,
+) =>
+  (options.client ?? client).post<PostSystemResetResponses, PostSystemResetErrors, ThrowOnError>({
+    responseType: 'json',
+    url: '/redfish/v1/Systems/{ComputerSystemId}/Actions/ComputerSystem.Reset',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+export const getTelemetryServiceMetricReports = <ThrowOnError extends boolean = false>(
+  options?: Options<GetTelemetryServiceMetricReportsData, ThrowOnError>,
+) =>
+  (options?.client ?? client).get<
+    GetTelemetryServiceMetricReportsResponses,
+    GetTelemetryServiceMetricReportsErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/redfish/v1/TelemetryService/MetricReports',
+    ...options,
+  });
+
+export const getTelemetryServiceMetricReportById = <ThrowOnError extends boolean = false>(
+  options: Options<GetTelemetryServiceMetricReportByIdData, ThrowOnError>,
+) =>
+  (options.client ?? client).get<
+    GetTelemetryServiceMetricReportByIdResponses,
+    GetTelemetryServiceMetricReportByIdErrors,
+    ThrowOnError
+  >({
+    responseType: 'json',
+    url: '/redfish/v1/TelemetryService/MetricReports/{MetricReportId}',
     ...options,
   });

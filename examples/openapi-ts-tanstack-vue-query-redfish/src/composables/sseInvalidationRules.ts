@@ -78,10 +78,15 @@ export const DEFAULT_INVALIDATION_RULES: readonly SseInvalidationRule[] = [
  * `postSessionServiceSessions` typically don't need to).
  */
 export const REDFISH_OPERATION_URLS: Readonly<Record<string, string>> = {
+  getAccountServiceAccountById: '/redfish/v1/AccountService/Accounts/{ManagerAccountId}',
   getChassis: '/redfish/v1/Chassis',
   getServiceRoot: '/redfish/v1',
   getSessionServiceSessions: '/redfish/v1/SessionService/Sessions',
+  getSystemById: '/redfish/v1/Systems/{ComputerSystemId}',
   getSystems: '/redfish/v1/Systems',
+  getTelemetryServiceMetricReportById:
+    '/redfish/v1/TelemetryService/MetricReports/{MetricReportId}',
+  getTelemetryServiceMetricReports: '/redfish/v1/TelemetryService/MetricReports',
 };
 
 const BUFFER_EXCEEDED_MARKER = 'EventBufferExceeded';

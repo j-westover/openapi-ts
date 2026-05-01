@@ -151,6 +151,14 @@ never disturbs the other:
 4. Use it from the app via `@/client/...`. Commit `src/client/` along
    with your source change.
 
+> **HMR gotcha:** `pnpm openapi-ts:scoped` rewrites four `.gen.ts` files
+> three times each in a few seconds (initial emit + `oxfmt` + `eslint
+--fix`). Vite's transform cache can hold a stale copy of one of those
+> files after such a burst, leaving newly-imported symbols looking
+> `undefined` in the browser. **If imports from `@/client/...` go quiet
+> after a regen, restart the dev server with `pnpm dev:fresh`** — that
+> wipes `node_modules/.vite/` and starts Vite with a clean dep cache.
+
 A CI step can guard against drift:
 
 ```bash

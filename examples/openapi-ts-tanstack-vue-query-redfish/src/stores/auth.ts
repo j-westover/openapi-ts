@@ -26,6 +26,7 @@ import { computed, ref } from 'vue';
 
 const STORAGE_KEY_TOKEN = 'redfish_auth_token';
 const STORAGE_KEY_SESSION = 'redfish_session_uri';
+const STORAGE_KEY_USERNAME = 'redfish_session_username';
 const COOKIE_NAME = 'X-Auth-Token';
 
 function setTokenCookie(token: string): void {
@@ -43,6 +44,7 @@ function clearTokenCookie(): void {
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(sessionStorage.getItem(STORAGE_KEY_TOKEN));
   const sessionUri = ref<string | null>(sessionStorage.getItem(STORAGE_KEY_SESSION));
+  const userName = ref<string | null>(sessionStorage.getItem(STORAGE_KEY_USERNAME));
 
   const isAuthenticated = computed(() => Boolean(token.value));
 
@@ -52,19 +54,24 @@ export const useAuthStore = defineStore('auth', () => {
   // tab-scoped sessions.
   if (token.value) setTokenCookie(token.value);
 
-  function setSession(authToken: string, uri: string): void {
+  function setSession(authToken: string, uri: string, name: string | null = null): void {
     token.value = authToken;
     sessionUri.value = uri;
+    userName.value = name;
     sessionStorage.setItem(STORAGE_KEY_TOKEN, authToken);
     sessionStorage.setItem(STORAGE_KEY_SESSION, uri);
+    if (name) sessionStorage.setItem(STORAGE_KEY_USERNAME, name);
+    else sessionStorage.removeItem(STORAGE_KEY_USERNAME);
     setTokenCookie(authToken);
   }
 
   function clearSession(): void {
     token.value = null;
     sessionUri.value = null;
+    userName.value = null;
     sessionStorage.removeItem(STORAGE_KEY_TOKEN);
     sessionStorage.removeItem(STORAGE_KEY_SESSION);
+    sessionStorage.removeItem(STORAGE_KEY_USERNAME);
     clearTokenCookie();
   }
 
@@ -74,5 +81,6 @@ export const useAuthStore = defineStore('auth', () => {
     sessionUri,
     setSession,
     token,
+    userName,
   };
 });

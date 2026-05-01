@@ -65,6 +65,24 @@ export type ResourceName = string;
  */
 export type ResourceDescription = string;
 
+export const ResourceState = {
+  ABSENT: 'Absent',
+  DEFERRING: 'Deferring',
+  DISABLED: 'Disabled',
+  ENABLED: 'Enabled',
+  DEGRADED: 'Degraded',
+  IN_TEST: 'InTest',
+  QUALIFIED: 'Qualified',
+  QUIESCED: 'Quiesced',
+  STANDBY_OFFLINE: 'StandbyOffline',
+  STANDBY_SPARE: 'StandbySpare',
+  STARTING: 'Starting',
+  UNAVAILABLE_OFFLINE: 'UnavailableOffline',
+  UPDATING: 'Updating',
+} as const;
+
+export type ResourceState = (typeof ResourceState)[keyof typeof ResourceState];
+
 export const ResourceHealth = {
   CRITICAL: 'Critical',
   OK: 'OK',
@@ -136,9 +154,130 @@ export type ActionInfoParameters = {
 };
 
 /**
+ * A condition that requires attention.
+ */
+export type ResourceCondition = {
+  /**
+   * The type of condition.
+   */
+  ConditionType?: ResourceConditionType | unknown;
+  LogEntry?: OdataV4IdRef;
+  /**
+   * The human-readable message for this condition.
+   */
+  readonly Message?: string;
+  /**
+   * An array of message arguments that are substituted for the arguments in the message when looked up in the message registry.
+   */
+  readonly MessageArgs?: Array<string>;
+  /**
+   * The identifier for the message.
+   */
+  readonly MessageId: string;
+  Oem?: ResourceOem;
+  OriginOfCondition?: OdataV4IdRef;
+  /**
+   * Suggestions on how to resolve the condition.
+   */
+  readonly Resolution?: string;
+  /**
+   * The list of recommended steps to resolve the condition.
+   */
+  ResolutionSteps?: Array<ResolutionStep>;
+  Severity?: ResourceHealth;
+  /**
+   * The time the condition occurred.
+   */
+  readonly Timestamp?: string;
+  /**
+   * The source of authentication for the username property associated with the condition.
+   */
+  readonly UserAuthenticationSource?: string | null;
+  /**
+   * The username of the account associated with the condition.
+   */
+  readonly Username?: string | null;
+};
+
+/**
+ * The status and health of a resource and its children.
+ */
+export type ResourceStatus = {
+  /**
+   * Conditions in this resource that require attention.
+   */
+  Conditions?: Array<ResourceCondition | unknown>;
+  /**
+   * The health state of this resource in the absence of its dependent resources.
+   */
+  Health?: ResourceHealth | unknown;
+  /**
+   * The overall health state from the view of this resource.
+   */
+  HealthRollup?: ResourceHealth | unknown;
+  Oem?: ResourceOem;
+  /**
+   * The state of the resource.
+   */
+  State?: ResourceState | unknown;
+};
+
+/**
  * The unique identifier for this resource within the collection of similar resources.
  */
 export type ResourceId = string;
+
+export type ResourceUuid = string;
+
+export const ResourcePowerState = {
+  OFF: 'Off',
+  ON: 'On',
+  PAUSED: 'Paused',
+  POWERING_OFF: 'PoweringOff',
+  POWERING_ON: 'PoweringOn',
+} as const;
+
+export type ResourcePowerState = (typeof ResourcePowerState)[keyof typeof ResourcePowerState];
+
+/**
+ * The DSP0274-defined measurement block information.
+ */
+export type SoftwareInventoryMeasurementBlock = {
+  /**
+   * The hexadecimal string representation of the numeric value of the DSP0274-defined 'Measurement' field of the measurement block.
+   */
+  readonly Measurement?: string | null;
+  /**
+   * The DSP0274-defined 'Index' field of the measurement block.
+   */
+  readonly MeasurementIndex?: number | null;
+  /**
+   * The DSP0274-defined 'MeasurementSize' field of the measurement block.
+   */
+  readonly MeasurementSize?: number | null;
+  /**
+   * The DSP0274-defined 'MeasurementSpecification' field of the measurement block.
+   */
+  readonly MeasurementSpecification?: number | null;
+};
+
+export const ResourceResetType = {
+  FORCE_OFF: 'ForceOff',
+  FORCE_ON: 'ForceOn',
+  FORCE_RESTART: 'ForceRestart',
+  FULL_POWER_CYCLE: 'FullPowerCycle',
+  GRACEFUL_RESTART: 'GracefulRestart',
+  GRACEFUL_SHUTDOWN: 'GracefulShutdown',
+  NMI: 'Nmi',
+  ON: 'On',
+  PAUSE: 'Pause',
+  POWER_CYCLE: 'PowerCycle',
+  PUSH_POWER_BUTTON: 'PushPowerButton',
+  RESUME: 'Resume',
+  SUSPEND: 'Suspend',
+} as const;
+
+export type ResourceResetType = (typeof ResourceResetType)[keyof typeof ResourceResetType];
 
 /**
  * The message that the Redfish service returns.
@@ -178,6 +317,68 @@ export type MessageV121Message = {
    */
   readonly Severity?: string;
 };
+
+export const ManagerAccountAccountTypes = {
+  CONTROL_PANEL: 'ControlPanel',
+  HOST_CONSOLE: 'HostConsole',
+  IPMI: 'IPMI',
+  KVMIP: 'KVMIP',
+  MANAGER_CONSOLE: 'ManagerConsole',
+  OEM: 'OEM',
+  REDFISH: 'Redfish',
+  SNMP: 'SNMP',
+  VIRTUAL_MEDIA: 'VirtualMedia',
+  WEB_UI: 'WebUI',
+} as const;
+
+export type ManagerAccountAccountTypes =
+  (typeof ManagerAccountAccountTypes)[keyof typeof ManagerAccountAccountTypes];
+
+export const AccountServiceMfaBypassType = {
+  ALL: 'All',
+  CLIENT_CERTIFICATE: 'ClientCertificate',
+  GOOGLE_AUTHENTICATOR: 'GoogleAuthenticator',
+  MICROSOFT_AUTHENTICATOR: 'MicrosoftAuthenticator',
+  OEM: 'OEM',
+  ONE_TIME_PASSCODE: 'OneTimePasscode',
+  SECUR_ID: 'SecurID',
+  TIME_BASED_ONE_TIME_PASSWORD: 'TimeBasedOneTimePassword',
+} as const;
+
+export type AccountServiceMfaBypassType =
+  (typeof AccountServiceMfaBypassType)[keyof typeof AccountServiceMfaBypassType];
+
+/**
+ * Multi-factor authentication bypass settings.
+ */
+export type AccountServiceMfaBypass = {
+  /**
+   * The types of multi-factor authentication this account or role mapping is allowed to bypass.
+   */
+  BypassTypes?: Array<AccountServiceMfaBypassType | unknown>;
+};
+
+export const ComputerSystemBootSource = {
+  BIOS_SETUP: 'BiosSetup',
+  CD: 'Cd',
+  DIAGS: 'Diags',
+  FLOPPY: 'Floppy',
+  HDD: 'Hdd',
+  NONE: 'None',
+  PXE: 'Pxe',
+  RECOVERY: 'Recovery',
+  REMOTE_DRIVE: 'RemoteDrive',
+  SD_CARD: 'SDCard',
+  UEFI_BOOT_NEXT: 'UefiBootNext',
+  UEFI_HTTP: 'UefiHttp',
+  UEFI_SHELL: 'UefiShell',
+  UEFI_TARGET: 'UefiTarget',
+  USB: 'Usb',
+  UTILITIES: 'Utilities',
+} as const;
+
+export type ComputerSystemBootSource =
+  (typeof ComputerSystemBootSource)[keyof typeof ComputerSystemBootSource];
 
 /**
  * The error payload from a Redfish service.
@@ -277,16 +478,111 @@ export type ResolutionStep = {
 };
 
 /**
+ * @version 1.22.0
+ */
+export const ResourceConditionType = {
+  ALERT: 'Alert',
+  INFORMATIONAL: 'Informational',
+  SUBSYSTEM: 'Subsystem',
+} as const;
+
+/**
+ * @version 1.22.0
+ */
+export type ResourceConditionType =
+  (typeof ResourceConditionType)[keyof typeof ResourceConditionType];
+
+/**
+ * @version 1.7.0
+ */
+export const RedundancyMode = {
+  FAILOVER: 'Failover',
+  NOT_REDUNDANT: 'NotRedundant',
+  N_M: 'N+m',
+  SHARING: 'Sharing',
+  SPARING: 'Sparing',
+} as const;
+
+/**
+ * @version 1.7.0
+ */
+export type RedundancyMode = (typeof RedundancyMode)[keyof typeof RedundancyMode];
+
+/**
+ * The available OEM-specific actions for this resource.
+ * @version 1.7.0
+ */
+export type RedundancyOemActions = {
+  [key: string]: unknown;
+};
+
+/**
+ * The available actions for this resource.
+ * @version 1.7.0
+ */
+export type RedundancyActions = {
+  Oem?: RedundancyOemActions;
+};
+
+/**
+ * The common redundancy definition and structure used in other Redfish schemas.
+ */
+export type Redundancy = {
+  '@odata.id': OdataV4Id;
+  Actions?: RedundancyActions;
+  /**
+   * The links to the active members included in this redundancy set.
+   */
+  readonly ActiveRedundancySet?: Array<OdataV4IdRef>;
+  'ActiveRedundancySet@odata.count'?: OdataV4Count;
+  /**
+   * The maximum number of members allowable for this particular redundancy group.
+   */
+  readonly MaxNumSupported?: number | null;
+  /**
+   * The unique identifier for the member within an array.
+   */
+  readonly MemberId: string;
+  /**
+   * The minimum number of members needed for this group to remain operational or functional.
+   */
+  readonly MinNumNeeded: number | null;
+  /**
+   * The minimum number of members needed for this group to be redundant.
+   */
+  readonly MinNumNeededForFaultTolerance?: number | null;
+  /**
+   * The redundancy mode of the group.
+   */
+  Mode: RedundancyMode | unknown;
+  /**
+   * The name of the resource or array member.
+   */
+  readonly Name: string;
+  Oem?: ResourceOem;
+  /**
+   * An indication of whether redundancy is enabled.
+   */
+  RedundancyEnabled?: boolean | null;
+  /**
+   * The links to components of this redundancy set.
+   */
+  readonly RedundancySet: Array<OdataV4IdRef>;
+  'RedundancySet@odata.count'?: OdataV4Count;
+  Status: ResourceStatus;
+};
+
+/**
  * @version 1.7.4
  */
 export const TaskState = {
-  CANCELLED: 'Cancelled',
-  CANCELLING: 'Cancelling',
   COMPLETED: 'Completed',
   EXCEPTION: 'Exception',
+  CANCELLING: 'Cancelling',
   INTERRUPTED: 'Interrupted',
-  KILLED: 'Killed',
+  CANCELLED: 'Cancelled',
   NEW: 'New',
+  KILLED: 'Killed',
   PENDING: 'Pending',
   RUNNING: 'Running',
   SERVICE: 'Service',
@@ -742,6 +1038,336 @@ export type ServiceRootLinks = {
 };
 
 /**
+ * The collection of `MetricReport` resource instances.
+ */
+export type MetricReportCollection = {
+  '@odata.context'?: OdataV4Context;
+  '@odata.etag'?: OdataV4Etag;
+  '@odata.id': OdataV4Id;
+  '@odata.type': OdataV4Type;
+  Description?: ResourceDescription | unknown;
+  /**
+   * The members of this collection.
+   */
+  readonly Members: Array<OdataV4IdRef>;
+  'Members@odata.count': OdataV4Count;
+  'Members@odata.nextLink'?: OdataV4NextLink;
+  Name: ResourceName;
+  Oem?: ResourceOem;
+};
+
+/**
+ * The available OEM-specific actions for this resource.
+ * @version 1.5.2
+ */
+export type MetricReportOemActions = {
+  [key: string]: unknown;
+};
+
+/**
+ * Properties that capture a metric value and other associated information.
+ * @version 1.5.2
+ */
+export type MetricReportMetricValue = {
+  MetricDefinition?: OdataV4IdRef;
+  /**
+   * The metric definitions identifier that contains additional information for the source metric.
+   */
+  readonly MetricId?: string | null;
+  /**
+   * The URI for the property from which this metric is derived.
+   */
+  readonly MetricProperty?: string | null;
+  /**
+   * The metric value, as a string.
+   */
+  readonly MetricValue?: string | null;
+  Oem?: ResourceOem;
+  /**
+   * The date and time when the metric is obtained.  A management application can establish a time series of metric data by retrieving the instances of metric value and sorting them according to their timestamp.
+   */
+  readonly Timestamp?: string | null;
+};
+
+/**
+ * The `MetricReport` schema represents a set of collected metrics.
+ * @version 1.5.2
+ */
+export type MetricReport = {
+  '@odata.context'?: OdataV4Context;
+  '@odata.etag'?: OdataV4Etag;
+  '@odata.id': OdataV4Id;
+  '@odata.type': OdataV4Type;
+  Actions?: MetricReportActions;
+  /**
+   * A context can be supplied at subscription time.  This property is the context value supplied by the subscriber.
+   */
+  readonly Context?: string;
+  Description?: ResourceDescription | unknown;
+  Id: ResourceId;
+  MetricReportDefinition?: OdataV4IdRef;
+  /**
+   * An array of metric values for the metered items of this metric report.
+   */
+  MetricValues?: Array<MetricReportMetricValue>;
+  Name: ResourceName;
+  Oem?: ResourceOem;
+  /**
+   * The current sequence identifier for this metric report.
+   *
+   * @deprecated
+   */
+  readonly ReportSequence?: string;
+  /**
+   * The time associated with the metric report in its entirety.  The time of the metric report can be relevant when the time of individual metrics are minimally different.
+   */
+  readonly Timestamp?: string | null;
+};
+
+/**
+ * The available actions for this resource.
+ * @version 1.5.2
+ */
+export type MetricReportActions = {
+  Oem?: MetricReportOemActions;
+};
+
+/**
+ * This action verifies a user-provided Time-based One-Time Password (TOTP).  This is to ensure the client's copy of the secret key is aligned with the secret key stored by the service.
+ * @version 1.14.1
+ */
+export type ManagerAccountVerifyTimeBasedOneTimePassword = {
+  /**
+   * Link to invoke action
+   */
+  target?: string;
+  /**
+   * Friendly action name
+   */
+  title?: string;
+};
+
+/**
+ * The SNMP settings for an account.
+ * @version 1.14.1
+ */
+export type ManagerAccountSnmpUserInfo = {
+  /**
+   * Indicates if the `AuthenticationKey` property is set.
+   */
+  readonly AuthenticationKeySet?: boolean;
+  /**
+   * The authentication protocol for SNMPv3.
+   */
+  AuthenticationProtocol?: ManagerAccountSnmpAuthenticationProtocols | unknown;
+  /**
+   * Indicates if the `EncryptionKey` property is set.
+   */
+  readonly EncryptionKeySet?: boolean;
+  /**
+   * The encryption protocol for SNMPv3.
+   */
+  EncryptionProtocol?: ManagerAccountSnmpEncryptionProtocols | unknown;
+};
+
+/**
+ * @version 1.14.1
+ */
+export const ManagerAccountSnmpEncryptionProtocols = {
+  CBC_DES: 'CBC_DES',
+  CFB128_AES128: 'CFB128_AES128',
+  CFB128_AES192: 'CFB128_AES192',
+  CFB128_AES256: 'CFB128_AES256',
+  NONE: 'None',
+} as const;
+
+/**
+ * @version 1.14.1
+ */
+export type ManagerAccountSnmpEncryptionProtocols =
+  (typeof ManagerAccountSnmpEncryptionProtocols)[keyof typeof ManagerAccountSnmpEncryptionProtocols];
+
+/**
+ * @version 1.14.1
+ */
+export const ManagerAccountSnmpAuthenticationProtocols = {
+  HMAC128_SHA224: 'HMAC128_SHA224',
+  HMAC192_SHA256: 'HMAC192_SHA256',
+  HMAC256_SHA384: 'HMAC256_SHA384',
+  HMAC384_SHA512: 'HMAC384_SHA512',
+  HMAC_MD5: 'HMAC_MD5',
+  HMAC_SHA96: 'HMAC_SHA96',
+  NONE: 'None',
+} as const;
+
+/**
+ * @version 1.14.1
+ */
+export type ManagerAccountSnmpAuthenticationProtocols =
+  (typeof ManagerAccountSnmpAuthenticationProtocols)[keyof typeof ManagerAccountSnmpAuthenticationProtocols];
+
+/**
+ * The available OEM-specific actions for this resource.
+ * @version 1.14.1
+ */
+export type ManagerAccountOemActions = {
+  [key: string]: unknown;
+};
+
+/**
+ * The `ManagerAccount` schema defines the user accounts that are owned by a manager.  Changes to a manager account might affect the current Redfish service connection if this manager is responsible for the Redfish service.
+ * @version 1.14.1
+ */
+export type ManagerAccount = {
+  '@odata.context'?: OdataV4Context;
+  '@odata.etag'?: OdataV4Etag;
+  '@odata.id': OdataV4Id;
+  '@odata.type': OdataV4Type;
+  /**
+   * Indicates the date and time when this account expires.  If `null`, the account never expires.
+   */
+  AccountExpiration?: string | null;
+  /**
+   * The list of services in the manager that the account is allowed to access.
+   */
+  AccountTypes: Array<ManagerAccountAccountTypes | unknown>;
+  Actions?: ManagerAccountActions;
+  Certificates?: OdataV4IdRef;
+  Description?: ResourceDescription | unknown;
+  /**
+   * The email address associated with this account.
+   */
+  EmailAddress?: string | null;
+  /**
+   * An indication of whether an account is enabled.  An administrator can disable it without deleting the user information.  If `true`, the account is enabled and the user can log in.  If `false`, the account is disabled and, in the future, the user cannot log in.
+   */
+  Enabled?: boolean;
+  /**
+   * An indication of whether this account is a bootstrap account for the host interface.
+   */
+  readonly HostBootstrapAccount?: boolean;
+  Id: ResourceId;
+  Keys?: OdataV4IdRef;
+  Links?: ManagerAccountLinks;
+  /**
+   * An indication of whether the account service automatically locked the account because the lockout threshold was exceeded.  To manually unlock the account before the lockout duration period, an administrator can change the property to `false` to clear the lockout condition.
+   */
+  Locked?: boolean;
+  /**
+   * The multi-factor authentication bypass settings for this account.
+   */
+  MFABypass?: AccountServiceMfaBypass | unknown;
+  Name: ResourceName;
+  /**
+   * The OEM account types.
+   */
+  OEMAccountTypes?: Array<string | null>;
+  Oem?: ResourceOem;
+  /**
+   * The address used to receive one-time passcode messages for multi-factor authentication.
+   */
+  OneTimePasscodeDeliveryAddress?: string | null;
+  /**
+   * An indication of whether the service requires that the password for this account be changed before further access to the account is allowed.
+   */
+  PasswordChangeRequired?: boolean | null;
+  /**
+   * Indicates the date and time when this account password expires.  If `null`, the account password never expires.
+   */
+  PasswordExpiration?: string | null;
+  /**
+   * The contact phone number associated with this account.
+   */
+  PhoneNumber?: string | null;
+  /**
+   * The role for this account.
+   */
+  RoleId?: string;
+  /**
+   * The SNMP settings for this account.
+   */
+  SNMP?: ManagerAccountSnmpUserInfo | unknown;
+  /**
+   * Indicates if the secret key for Time-based One-Time Password (TOTP) multi-factor authentication is set.
+   */
+  readonly SecretKeySet?: boolean;
+  /**
+   * Indicates if the service needs to use the account types exactly as specified when the account is created or updated.
+   */
+  StrictAccountTypes?: boolean | null;
+  /**
+   * The username for the account.
+   */
+  UserName?: string;
+};
+
+/**
+ * The links to other resources that are related to this resource.
+ * @version 1.14.1
+ */
+export type ManagerAccountLinks = {
+  Oem?: ResourceOem;
+  Role?: OdataV4IdRef;
+};
+
+/**
+ * This action randomly generates a new secret key for Time-based One-Time Password (TOTP) multi-factor authentication for this account.
+ * @version 1.14.1
+ */
+export type ManagerAccountGenerateSecretKey = {
+  /**
+   * Link to invoke action
+   */
+  target?: string;
+  /**
+   * Friendly action name
+   */
+  title?: string;
+};
+
+/**
+ * This action clears the secret key for Time-based One-Time Password (TOTP) multi-factor authentication for this account.
+ * @version 1.14.1
+ */
+export type ManagerAccountClearSecretKey = {
+  /**
+   * Link to invoke action
+   */
+  target?: string;
+  /**
+   * Friendly action name
+   */
+  title?: string;
+};
+
+/**
+ * This action changes the account password.
+ * @version 1.14.1
+ */
+export type ManagerAccountChangePassword = {
+  /**
+   * Link to invoke action
+   */
+  target?: string;
+  /**
+   * Friendly action name
+   */
+  title?: string;
+};
+
+/**
+ * The available actions for this resource.
+ * @version 1.14.1
+ */
+export type ManagerAccountActions = {
+  '#ManagerAccount.ChangePassword'?: ManagerAccountChangePassword;
+  '#ManagerAccount.ClearSecretKey'?: ManagerAccountClearSecretKey;
+  '#ManagerAccount.GenerateSecretKey'?: ManagerAccountGenerateSecretKey;
+  '#ManagerAccount.VerifyTimeBasedOneTimePassword'?: ManagerAccountVerifyTimeBasedOneTimePassword;
+  Oem?: ManagerAccountOemActions;
+};
+
+/**
  * @deprecated
  */
 export const EventType = {
@@ -820,6 +1446,1097 @@ export type ComputerSystemCollection = {
 };
 
 /**
+ * The information about a WebSocket serial console service that this system provides.
+ * @version 1.27.0
+ */
+export type ComputerSystemWebSocketConsole = {
+  /**
+   * The URI at which to access the WebSocket serial console.
+   */
+  readonly ConsoleURI?: string;
+  /**
+   * Indicates if the WebSocket serial console allows interactive input.
+   */
+  readonly Interactive?: boolean;
+  /**
+   * An indication of whether the service is enabled for this system.
+   */
+  ServiceEnabled?: boolean;
+};
+
+/**
+ * The enumerations of `WatchdogWarningActions` specify the choice of action to take when the host watchdog timer is close (typically 3-10 seconds) to reaching its timeout value.
+ * @version 1.27.0
+ */
+export const ComputerSystemWatchdogWarningActions = {
+  DIAGNOSTIC_INTERRUPT: 'DiagnosticInterrupt',
+  MESSAGING_INTERRUPT: 'MessagingInterrupt',
+  NONE: 'None',
+  OEM: 'OEM',
+  SCI: 'SCI',
+  SMI: 'SMI',
+} as const;
+
+/**
+ * The enumerations of `WatchdogWarningActions` specify the choice of action to take when the host watchdog timer is close (typically 3-10 seconds) to reaching its timeout value.
+ * @version 1.27.0
+ */
+export type ComputerSystemWatchdogWarningActions =
+  (typeof ComputerSystemWatchdogWarningActions)[keyof typeof ComputerSystemWatchdogWarningActions];
+
+/**
+ * This type describes the host watchdog timer functionality for this system.
+ * @version 1.27.0
+ */
+export type ComputerSystemWatchdogTimer = {
+  /**
+   * An indication of whether a user has enabled the host watchdog timer functionality.  This property indicates only that a user has enabled the timer.  To activate the timer, installation of additional host-based software is necessary; an update to this property does not initiate the timer.
+   */
+  FunctionEnabled: boolean | null;
+  Oem?: ResourceOem;
+  Status?: ResourceStatus;
+  /**
+   * The action to perform when the watchdog timer reaches its timeout value.
+   */
+  TimeoutAction: ComputerSystemWatchdogTimeoutActions | unknown;
+  /**
+   * The action to perform when the watchdog timer is close to reaching its timeout value.  This action typically occurs from three to ten seconds before to the timeout value, but the exact timing is dependent on the implementation.
+   */
+  WarningAction?: ComputerSystemWatchdogWarningActions | unknown;
+};
+
+/**
+ * The enumerations of `WatchdogTimeoutActions` specify the choice of action to take when the host watchdog timer reaches its timeout value.
+ * @version 1.27.0
+ */
+export const ComputerSystemWatchdogTimeoutActions = {
+  NONE: 'None',
+  OEM: 'OEM',
+  POWER_CYCLE: 'PowerCycle',
+  POWER_DOWN: 'PowerDown',
+  RESET_SYSTEM: 'ResetSystem',
+} as const;
+
+/**
+ * The enumerations of `WatchdogTimeoutActions` specify the choice of action to take when the host watchdog timer reaches its timeout value.
+ * @version 1.27.0
+ */
+export type ComputerSystemWatchdogTimeoutActions =
+  (typeof ComputerSystemWatchdogTimeoutActions)[keyof typeof ComputerSystemWatchdogTimeoutActions];
+
+/**
+ * The information about virtual media service for this system.
+ * @version 1.27.0
+ */
+export type ComputerSystemVirtualMediaConfig = {
+  /**
+   * The protocol port.
+   */
+  Port?: number | null;
+  /**
+   * An indication of whether the service is enabled for this system.
+   */
+  ServiceEnabled?: boolean;
+};
+
+/**
+ * The Trusted Module installed in the system.
+ * @version 1.27.0
+ */
+export type ComputerSystemTrustedModules = {
+  /**
+   * The firmware version of this Trusted Module.
+   */
+  readonly FirmwareVersion?: string | null;
+  /**
+   * The second firmware version of this Trusted Module, if applicable.
+   */
+  readonly FirmwareVersion2?: string | null;
+  /**
+   * The interface type of the Trusted Module.
+   */
+  InterfaceType?: ComputerSystemInterfaceType | unknown;
+  /**
+   * The interface type selection supported by this Trusted Module.
+   */
+  InterfaceTypeSelection?: ComputerSystemInterfaceTypeSelection | unknown;
+  Oem?: ResourceOem;
+  Status?: ResourceStatus;
+};
+
+/**
+ * The enumerations of `InterfaceTypeSelection` specify the method for switching the TrustedModule InterfaceType, for instance between TPM1_2 and TPM2_0, if supported.
+ * @version 1.27.0
+ */
+export const ComputerSystemInterfaceTypeSelection = {
+  BIOS_SETTING: 'BiosSetting',
+  FIRMWARE_UPDATE: 'FirmwareUpdate',
+  NONE: 'None',
+  OEM_METHOD: 'OemMethod',
+} as const;
+
+/**
+ * The enumerations of `InterfaceTypeSelection` specify the method for switching the TrustedModule InterfaceType, for instance between TPM1_2 and TPM2_0, if supported.
+ * @version 1.27.0
+ */
+export type ComputerSystemInterfaceTypeSelection =
+  (typeof ComputerSystemInterfaceTypeSelection)[keyof typeof ComputerSystemInterfaceTypeSelection];
+
+/**
+ * @version 1.27.0
+ */
+export const ComputerSystemInterfaceType = {
+  TCM1_0: 'TCM1_0',
+  TPM1_2: 'TPM1_2',
+  TPM2_0: 'TPM2_0',
+} as const;
+
+/**
+ * @version 1.27.0
+ */
+export type ComputerSystemInterfaceType =
+  (typeof ComputerSystemInterfaceType)[keyof typeof ComputerSystemInterfaceType];
+
+/**
+ * @version 1.27.0
+ */
+export const ComputerSystemTrustedModuleRequiredToBoot = {
+  DISABLED: 'Disabled',
+  REQUIRED: 'Required',
+} as const;
+
+/**
+ * @version 1.27.0
+ */
+export type ComputerSystemTrustedModuleRequiredToBoot =
+  (typeof ComputerSystemTrustedModuleRequiredToBoot)[keyof typeof ComputerSystemTrustedModuleRequiredToBoot];
+
+/**
+ * @version 1.27.0
+ */
+export const ComputerSystemSystemType = {
+  COMPOSED: 'Composed',
+  DPU: 'DPU',
+  OS: 'OS',
+  PHYSICAL: 'Physical',
+  PHYSICALLY_PARTITIONED: 'PhysicallyPartitioned',
+  VIRTUAL: 'Virtual',
+  VIRTUALLY_PARTITIONED: 'VirtuallyPartitioned',
+} as const;
+
+/**
+ * @version 1.27.0
+ */
+export type ComputerSystemSystemType =
+  (typeof ComputerSystemSystemType)[keyof typeof ComputerSystemSystemType];
+
+/**
+ * @version 1.27.0
+ */
+export const ComputerSystemStopBootOnFault = { ANY_FAULT: 'AnyFault', NEVER: 'Never' } as const;
+
+/**
+ * @version 1.27.0
+ */
+export type ComputerSystemStopBootOnFault =
+  (typeof ComputerSystemStopBootOnFault)[keyof typeof ComputerSystemStopBootOnFault];
+
+/**
+ * This action sets the `BootOrder` property to the default settings.
+ * @version 1.27.0
+ */
+export type ComputerSystemSetDefaultBootOrder = {
+  /**
+   * Link to invoke action
+   */
+  target?: string;
+  /**
+   * Friendly action name
+   */
+  title?: string;
+};
+
+/**
+ * The information about a serial console service that this system provides.
+ * @version 1.27.0
+ */
+export type ComputerSystemSerialConsoleProtocol = {
+  /**
+   * The command string passed to the service to select or enter the system's serial console.
+   */
+  readonly ConsoleEntryCommand?: string | null;
+  /**
+   * The hotkey sequence available for the user to exit the serial console session.
+   */
+  readonly HotKeySequenceDisplay?: string | null;
+  /**
+   * The protocol port.
+   */
+  Port?: number | null;
+  /**
+   * An indication of whether the service is enabled for this system.
+   */
+  ServiceEnabled?: boolean;
+  /**
+   * Indicates whether the serial console service is shared with access to the manager's command-line interface (CLI).
+   */
+  readonly SharedWithManagerCLI?: boolean;
+};
+
+/**
+ * This action resets the system.
+ * @version 1.27.0
+ */
+export type ComputerSystemResetRequestBody = {
+  ResetType?: ResourceResetType;
+};
+
+/**
+ * This action resets the system.
+ * @version 1.27.0
+ */
+export type ComputerSystemReset = {
+  /**
+   * Link to invoke action
+   */
+  target?: string;
+  /**
+   * Friendly action name
+   */
+  title?: string;
+};
+
+/**
+ * This action removes a resource block from a system.
+ * @version 1.27.0
+ */
+export type ComputerSystemRemoveResourceBlock = {
+  /**
+   * Link to invoke action
+   */
+  target?: string;
+  /**
+   * Friendly action name
+   */
+  title?: string;
+};
+
+/**
+ * The central processors of the system in general detail.
+ * @version 1.27.0
+ */
+export type ComputerSystemProcessorSummary = {
+  /**
+   * The number of processor cores in the system.
+   */
+  readonly CoreCount?: number | null;
+  /**
+   * The number of physical processors in the system.
+   */
+  readonly Count?: number | null;
+  /**
+   * The number of logical processors in the system.
+   */
+  readonly LogicalProcessorCount?: number | null;
+  Metrics?: OdataV4IdRef;
+  /**
+   * The processor model for the primary or majority of processors in this system.
+   */
+  readonly Model?: string | null;
+  Status?: ResourceStatus;
+  /**
+   * An indication of whether threading is enabled on all processors in this system.
+   */
+  ThreadingEnabled?: boolean;
+};
+
+/**
+ * The enumerations of `PowerRestorePolicyTypes` specify the choice of power state for the system when power is applied.
+ * @version 1.27.0
+ */
+export const ComputerSystemPowerRestorePolicyTypes = {
+  ALWAYS_OFF: 'AlwaysOff',
+  ALWAYS_ON: 'AlwaysOn',
+  LAST_STATE: 'LastState',
+} as const;
+
+/**
+ * The enumerations of `PowerRestorePolicyTypes` specify the choice of power state for the system when power is applied.
+ * @version 1.27.0
+ */
+export type ComputerSystemPowerRestorePolicyTypes =
+  (typeof ComputerSystemPowerRestorePolicyTypes)[keyof typeof ComputerSystemPowerRestorePolicyTypes];
+
+/**
+ * @version 1.27.0
+ */
+export const ComputerSystemPowerMode = {
+  BALANCED_PERFORMANCE: 'BalancedPerformance',
+  EFFICIENCY_FAVOR_PERFORMANCE: 'EfficiencyFavorPerformance',
+  EFFICIENCY_FAVOR_POWER: 'EfficiencyFavorPower',
+  MAXIMUM_PERFORMANCE: 'MaximumPerformance',
+  OEM: 'OEM',
+  OS_CONTROLLED: 'OSControlled',
+  POWER_SAVING: 'PowerSaving',
+  STATIC: 'Static',
+} as const;
+
+/**
+ * @version 1.27.0
+ */
+export type ComputerSystemPowerMode =
+  (typeof ComputerSystemPowerMode)[keyof typeof ComputerSystemPowerMode];
+
+/**
+ * The available OEM-specific actions for this resource.
+ * @version 1.27.0
+ */
+export type ComputerSystemOemActions = {
+  [key: string]: unknown;
+};
+
+/**
+ * The memory of the system in general detail.
+ * @version 1.27.0
+ */
+export type ComputerSystemMemorySummary = {
+  /**
+   * The ability and type of memory mirroring that this computer system supports.
+   */
+  MemoryMirroring?: ComputerSystemMemoryMirroring | unknown;
+  Metrics?: OdataV4IdRef;
+  Status?: ResourceStatus;
+  /**
+   * The total configured operating system-accessible memory (RAM), measured in GiB.
+   */
+  readonly TotalSystemMemoryGiB?: number | null;
+  /**
+   * The total configured, system-accessible persistent memory, measured in GiB.
+   */
+  readonly TotalSystemPersistentMemoryGiB?: number | null;
+};
+
+/**
+ * @version 1.27.0
+ */
+export const ComputerSystemMemoryMirroring = {
+  DIMM: 'DIMM',
+  HYBRID: 'Hybrid',
+  NONE: 'None',
+  SYSTEM: 'System',
+} as const;
+
+/**
+ * @version 1.27.0
+ */
+export type ComputerSystemMemoryMirroring =
+  (typeof ComputerSystemMemoryMirroring)[keyof typeof ComputerSystemMemoryMirroring];
+
+/**
+ * The links to other resources that are related to this resource.
+ * @version 1.27.0
+ */
+export type ComputerSystemLinks = {
+  /**
+   * An array of links to the chassis that contains this system.
+   */
+  readonly Chassis?: Array<OdataV4IdRef>;
+  'Chassis@odata.count'?: OdataV4Count;
+  /**
+   * An array of links to computer systems that are realized, in whole or in part, from this computer system.
+   */
+  readonly ConsumingComputerSystems?: Array<OdataV4IdRef>;
+  'ConsumingComputerSystems@odata.count'?: OdataV4Count;
+  /**
+   * An array of links to resources or objects that cool this computer system.  Normally, the link is for either a chassis or a specific set of fans.
+   */
+  readonly CooledBy?: Array<OdataV4IdRef>;
+  'CooledBy@odata.count'?: OdataV4Count;
+  /**
+   * An array of links to the endpoints that connect to this system.
+   */
+  readonly Endpoints?: Array<OdataV4IdRef>;
+  'Endpoints@odata.count'?: OdataV4Count;
+  /**
+   * The link to the system that is hosting this virtual machine.
+   */
+  HostingComputerSystem?: OdataV4IdRef | unknown;
+  /**
+   * An array of links to the managers responsible for this system.
+   */
+  readonly ManagedBy?: Array<OdataV4IdRef>;
+  'ManagedBy@odata.count'?: OdataV4Count;
+  Oem?: ResourceOem;
+  /**
+   * The network device functions to which this system performs offload computation, such as with a SmartNIC.
+   */
+  readonly OffloadedNetworkDeviceFunctions?: Array<OdataV4IdRef>;
+  'OffloadedNetworkDeviceFunctions@odata.count'?: OdataV4Count;
+  /**
+   * An array of links to resources or objects that power this computer system.  Normally, the link is for either a chassis or a specific set of power supplies.
+   */
+  readonly PoweredBy?: Array<OdataV4IdRef>;
+  'PoweredBy@odata.count'?: OdataV4Count;
+  /**
+   * An array of links to the resource blocks that are used in this computer system.
+   */
+  ResourceBlocks?: Array<OdataV4IdRef>;
+  'ResourceBlocks@odata.count'?: OdataV4Count;
+  /**
+   * An array of links to computer systems that contribute, in whole or in part, to the implementation of this computer system.
+   */
+  readonly SupplyingComputerSystems?: Array<OdataV4IdRef>;
+  'SupplyingComputerSystems@odata.count'?: OdataV4Count;
+  /**
+   * An array of links to the trusted components for this system.
+   */
+  readonly TrustedComponents?: Array<OdataV4IdRef>;
+  'TrustedComponents@odata.count'?: OdataV4Count;
+  /**
+   * An array of links to the virtual machines this system is hosting.
+   */
+  readonly VirtualMachines?: Array<OdataV4IdRef>;
+  'VirtualMachines@odata.count'?: OdataV4Count;
+};
+
+/**
+ * @version 1.27.0
+ */
+export const ComputerSystemLastResetCauses = {
+  MANAGEMENT_COMMAND: 'ManagementCommand',
+  OS_SOFT_RESTART: 'OSSoftRestart',
+  POWER_BUTTON_PRESS: 'PowerButtonPress',
+  POWER_EVENT: 'PowerEvent',
+  POWER_RESTORE_POLICY: 'PowerRestorePolicy',
+  RTC_WAKEUP: 'RTCWakeup',
+  SYSTEM_CRASH: 'SystemCrash',
+  THERMAL_EVENT: 'ThermalEvent',
+  UNKNOWN: 'Unknown',
+  WATCHDOG_EXPIRATION: 'WatchdogExpiration',
+} as const;
+
+/**
+ * @version 1.27.0
+ */
+export type ComputerSystemLastResetCauses =
+  (typeof ComputerSystemLastResetCauses)[keyof typeof ComputerSystemLastResetCauses];
+
+/**
+ * The key management settings of a computer system.
+ * @version 1.27.0
+ */
+export type ComputerSystemKeyManagement = {
+  KMIPCertificates?: OdataV4IdRef;
+  KMIPClientCertificates?: OdataV4IdRef;
+  /**
+   * The KMIP servers to which this computer system is subscribed.
+   */
+  KMIPServers?: Array<ComputerSystemKmipServer | unknown>;
+};
+
+/**
+ * @version 1.27.0
+ */
+export const ComputerSystemKmipCachePolicy = {
+  AFTER_FIRST_USE: 'AfterFirstUse',
+  NONE: 'None',
+} as const;
+
+/**
+ * @version 1.27.0
+ */
+export type ComputerSystemKmipCachePolicy =
+  (typeof ComputerSystemKmipCachePolicy)[keyof typeof ComputerSystemKmipCachePolicy];
+
+/**
+ * The KMIP server settings for a computer system.
+ * @version 1.27.0
+ */
+export type ComputerSystemKmipServer = {
+  /**
+   * The KMIP server address.
+   */
+  Address?: string | null;
+  /**
+   * The duration the system caches KMIP data.
+   */
+  CacheDuration?: string | null;
+  /**
+   * The cache policy to control how KMIP data is cached.
+   */
+  CachePolicy?: ComputerSystemKmipCachePolicy | unknown;
+  /**
+   * The KMIP server port.
+   */
+  Port?: number | null;
+  /**
+   * The username to access the KMIP server.
+   */
+  Username?: string | null;
+};
+
+/**
+ * @version 1.27.0
+ */
+export const ComputerSystemIndicatorLed = {
+  BLINKING: 'Blinking',
+  LIT: 'Lit',
+  OFF: 'Off',
+  UNKNOWN: 'Unknown',
+} as const;
+
+/**
+ * @version 1.27.0
+ */
+export type ComputerSystemIndicatorLed =
+  (typeof ComputerSystemIndicatorLed)[keyof typeof ComputerSystemIndicatorLed];
+
+/**
+ * The idle power saver settings of a computer system.
+ * @version 1.27.0
+ */
+export type ComputerSystemIdlePowerSaver = {
+  /**
+   * An indication of whether idle power saver is enabled.
+   */
+  Enabled?: boolean;
+  /**
+   * The duration in seconds the computer system is below the `EnterUtilizationPercent` value before the idle power save is activated.
+   */
+  EnterDwellTimeSeconds?: number | null;
+  /**
+   * The percentage of utilization when the computer system enters idle power save.  If the computer system's utilization goes below this value, it enters idle power save.
+   */
+  EnterUtilizationPercent?: number | null;
+  /**
+   * The duration in seconds the computer system is above the `ExitUtilizationPercent` value before the idle power save is stopped.
+   */
+  ExitDwellTimeSeconds?: number | null;
+  /**
+   * The percentage of utilization when the computer system exits idle power save.  If the computer system's utilization goes above this value, it exits idle power save.
+   */
+  ExitUtilizationPercent?: number | null;
+};
+
+/**
+ * The information about the in-band IPMI service for this system.
+ * @version 1.27.0
+ */
+export type ComputerSystemIpmiHostInterface = {
+  /**
+   * An indication of whether the service is enabled for this system.
+   */
+  ServiceEnabled?: boolean;
+};
+
+/**
+ * The enumerations of `HostingRole` specify different features that the hosting computer system supports.
+ * @version 1.27.0
+ */
+export const ComputerSystemHostingRole = {
+  APPLIANCE: 'Appliance',
+  APPLICATION_SERVER: 'ApplicationServer',
+  BARE_METAL_SERVER: 'BareMetalServer',
+  CONTAINER_SERVER: 'ContainerServer',
+  STORAGE_SERVER: 'StorageServer',
+  SWITCH: 'Switch',
+  VIRTUAL_MACHINE_SERVER: 'VirtualMachineServer',
+} as const;
+
+/**
+ * The enumerations of `HostingRole` specify different features that the hosting computer system supports.
+ * @version 1.27.0
+ */
+export type ComputerSystemHostingRole =
+  (typeof ComputerSystemHostingRole)[keyof typeof ComputerSystemHostingRole];
+
+/**
+ * The services that might be running or installed on the system.
+ * @version 1.27.0
+ */
+export type ComputerSystemHostedServices = {
+  Oem?: ResourceOem;
+  StorageServices?: OdataV4IdRef;
+};
+
+/**
+ * The information about the serial console services that this system provides.
+ * @version 1.27.0
+ */
+export type ComputerSystemHostSerialConsole = {
+  IPMI?: ComputerSystemSerialConsoleProtocol;
+  /**
+   * The maximum number of service sessions, regardless of protocol, that this system can support.
+   */
+  readonly MaxConcurrentSessions?: number;
+  SSH?: ComputerSystemSerialConsoleProtocol;
+  Telnet?: ComputerSystemSerialConsoleProtocol;
+  WebSocket?: ComputerSystemWebSocketConsole;
+};
+
+/**
+ * The information about a graphical console service for this system.
+ * @version 1.27.0
+ */
+export type ComputerSystemHostGraphicalConsole = {
+  /**
+   * This property enumerates the graphical console connection types that the implementation allows.
+   */
+  readonly ConnectTypesSupported?: Array<ComputerSystemGraphicalConnectTypesSupported>;
+  /**
+   * The maximum number of service sessions, regardless of protocol, that this system can support.
+   */
+  readonly MaxConcurrentSessions?: number;
+  /**
+   * The protocol port.
+   */
+  Port?: number | null;
+  /**
+   * An indication of whether the service is enabled for this system.
+   */
+  ServiceEnabled?: boolean;
+};
+
+/**
+ * @version 1.27.0
+ */
+export const ComputerSystemGraphicalConnectTypesSupported = { KVMIP: 'KVMIP', OEM: 'OEM' } as const;
+
+/**
+ * @version 1.27.0
+ */
+export type ComputerSystemGraphicalConnectTypesSupported =
+  (typeof ComputerSystemGraphicalConnectTypesSupported)[keyof typeof ComputerSystemGraphicalConnectTypesSupported];
+
+/**
+ * This action exports the configuration of a system in a vendor-specific format.
+ * @version 1.27.0
+ */
+export type ComputerSystemExportConfiguration = {
+  /**
+   * Link to invoke action
+   */
+  target?: string;
+  /**
+   * Friendly action name
+   */
+  title?: string;
+};
+
+/**
+ * This action decommissions a system.
+ * @version 1.27.0
+ */
+export type ComputerSystemDecommission = {
+  /**
+   * Link to invoke action
+   */
+  target?: string;
+  /**
+   * Friendly action name
+   */
+  title?: string;
+};
+
+/**
+ * The `ComputerSystem` schema represents a computer or system instance and the software-visible resources, or items within the data plane, such as memory, CPU, and other devices that it can access.  Details of those resources or subsystems are also linked through this resource.
+ * @version 1.27.0
+ */
+export type ComputerSystem = {
+  '@odata.context'?: OdataV4Context;
+  '@odata.etag'?: OdataV4Etag;
+  '@odata.id': OdataV4Id;
+  '@odata.type': OdataV4Type;
+  Actions?: ComputerSystemActions;
+  /**
+   * The user-definable tag that can track this computer system for inventory or other client purposes.
+   */
+  AssetTag?: string | null;
+  Bios?: OdataV4IdRef;
+  /**
+   * The version of the system BIOS or primary system firmware.
+   */
+  readonly BiosVersion?: string | null;
+  Boot?: ComputerSystemBoot;
+  /**
+   * This object describes the last boot progress state.
+   */
+  BootProgress?: ComputerSystemBootProgress | unknown;
+  Certificates?: OdataV4IdRef;
+  /**
+   * Information about the composition capabilities and state of the computer system.
+   */
+  Composition?: ComputerSystemComposition | unknown;
+  Description?: ResourceDescription | unknown;
+  EthernetInterfaces?: OdataV4IdRef;
+  FabricAdapters?: OdataV4IdRef;
+  GraphicalConsole?: ComputerSystemHostGraphicalConsole;
+  GraphicsControllers?: OdataV4IdRef;
+  /**
+   * The DNS host name, without any domain information.
+   */
+  HostName?: string | null;
+  HostWatchdogTimer?: ComputerSystemWatchdogTimer;
+  HostedServices?: ComputerSystemHostedServices;
+  /**
+   * The hosting roles that this computer system supports.
+   */
+  readonly HostingRoles?: Array<ComputerSystemHostingRole>;
+  IPMIHostInterface?: ComputerSystemIpmiHostInterface;
+  Id: ResourceId;
+  /**
+   * The idle power saver settings of the computer system.
+   */
+  IdlePowerSaver?: ComputerSystemIdlePowerSaver | unknown;
+  /**
+   * The state of the indicator LED, which identifies the system.
+   *
+   * @deprecated
+   */
+  IndicatorLED?: ComputerSystemIndicatorLed | unknown;
+  /**
+   * The key management settings of the computer system.
+   */
+  KeyManagement?: ComputerSystemKeyManagement | unknown;
+  LastResetCause?: ComputerSystemLastResetCauses;
+  /**
+   * The date and time when the system was last reset or rebooted.
+   */
+  readonly LastResetTime?: string;
+  Links?: ComputerSystemLinks;
+  /**
+   * An indicator allowing an operator to physically locate this resource.
+   */
+  LocationIndicatorActive?: boolean | null;
+  LogServices?: OdataV4IdRef;
+  /**
+   * The manufacturer or OEM of this system.
+   */
+  readonly Manufacturer?: string | null;
+  /**
+   * An indication of whether the system is in manufacturing mode.  Manufacturing mode is a special boot mode, not normally available to end users, that modifies features and settings for use while the system is being manufactured and tested.
+   */
+  readonly ManufacturingMode?: boolean | null;
+  /**
+   * An array of DSP0274-defined measurement blocks.
+   *
+   * @deprecated
+   */
+  Measurements?: Array<SoftwareInventoryMeasurementBlock>;
+  Memory?: OdataV4IdRef;
+  MemoryDomains?: OdataV4IdRef;
+  MemorySummary?: ComputerSystemMemorySummary;
+  /**
+   * The product name for this system, without the manufacturer name.
+   */
+  readonly Model?: string | null;
+  /**
+   * The URI used to perform a Redfish Specification-defined multipart HTTP or HTTPS push import of a vendor-specific configuration file.
+   */
+  readonly MultipartImportConfigurationPushURI?: string;
+  Name: ResourceName;
+  NetworkInterfaces?: OdataV4IdRef;
+  Oem?: ResourceOem;
+  OperatingSystem?: OdataV4IdRef;
+  /**
+   * The link to a collection of PCIe devices that this computer system uses.
+   */
+  readonly PCIeDevices?: Array<OdataV4IdRef>;
+  'PCIeDevices@odata.count'?: OdataV4Count;
+  /**
+   * The link to a collection of PCIe functions that this computer system uses.
+   */
+  readonly PCIeFunctions?: Array<OdataV4IdRef>;
+  'PCIeFunctions@odata.count'?: OdataV4Count;
+  /**
+   * The part number for this system.
+   */
+  readonly PartNumber?: string | null;
+  /**
+   * The number of seconds to delay power on after a `Reset` action requesting `PowerCycle` or `FullPowerCycle`.  Zero seconds indicates no delay.
+   */
+  PowerCycleDelaySeconds?: number | null;
+  /**
+   * The power mode setting of the computer system.
+   */
+  PowerMode?: ComputerSystemPowerMode | unknown;
+  /**
+   * The number of seconds to delay power off during a reset.  Zero seconds indicates no delay to power off.
+   */
+  PowerOffDelaySeconds?: number | null;
+  /**
+   * The number of seconds to delay power on after an externally performed power cycle or during a reset.  Zero seconds indicates no delay to power up.
+   */
+  PowerOnDelaySeconds?: number | null;
+  PowerRestorePolicy?: ComputerSystemPowerRestorePolicyTypes;
+  /**
+   * The current power state of the system.
+   */
+  PowerState?: ResourcePowerState | unknown;
+  ProcessorSummary?: ComputerSystemProcessorSummary;
+  Processors?: OdataV4IdRef;
+  /**
+   * The link to a collection of redundancy entities.  Each entity specifies a kind and level of redundancy and a collection, or redundancy set, of other computer systems that provide the specified redundancy to this computer system.
+   */
+  readonly Redundancy?: Array<Redundancy>;
+  'Redundancy@odata.count'?: OdataV4Count;
+  /**
+   * The manufacturer SKU for this system.
+   */
+  readonly SKU?: string | null;
+  SecureBoot?: OdataV4IdRef;
+  SerialConsole?: ComputerSystemHostSerialConsole;
+  /**
+   * The serial number for this system.
+   */
+  readonly SerialNumber?: string | null;
+  SimpleStorage?: OdataV4IdRef;
+  Status?: ResourceStatus;
+  Storage?: OdataV4IdRef;
+  /**
+   * The sub-model for this system.
+   */
+  readonly SubModel?: string | null;
+  SystemType?: ComputerSystemSystemType;
+  /**
+   * An array of trusted modules in the system.
+   *
+   * @deprecated
+   */
+  TrustedModules?: Array<ComputerSystemTrustedModules>;
+  USBControllers?: OdataV4IdRef;
+  /**
+   * The UUID for this system.
+   */
+  UUID?: ResourceUuid | unknown;
+  VirtualMedia?: OdataV4IdRef;
+  VirtualMediaConfig?: ComputerSystemVirtualMediaConfig;
+};
+
+/**
+ * @version 1.27.0
+ */
+export const ComputerSystemCompositionUseCase = {
+  EXPANDABLE_SYSTEM: 'ExpandableSystem',
+  RESOURCE_BLOCK_CAPABLE: 'ResourceBlockCapable',
+} as const;
+
+/**
+ * @version 1.27.0
+ */
+export type ComputerSystemCompositionUseCase =
+  (typeof ComputerSystemCompositionUseCase)[keyof typeof ComputerSystemCompositionUseCase];
+
+/**
+ * Information about the composition capabilities and state of a computer system.
+ * @version 1.27.0
+ */
+export type ComputerSystemComposition = {
+  /**
+   * The composition use cases in which this computer system can participate.
+   */
+  readonly UseCases?: Array<ComputerSystemCompositionUseCase | unknown>;
+};
+
+/**
+ * @version 1.27.0
+ */
+export const ComputerSystemBootProgressTypes = {
+  BUS_INITIALIZATION_STARTED: 'BusInitializationStarted',
+  MEMORY_INITIALIZATION_STARTED: 'MemoryInitializationStarted',
+  NONE: 'None',
+  OEM: 'OEM',
+  OS_BOOT_STARTED: 'OSBootStarted',
+  OS_RUNNING: 'OSRunning',
+  PCI_RESOURCE_CONFIG_STARTED: 'PCIResourceConfigStarted',
+  PRIMARY_PROCESSOR_INITIALIZATION_STARTED: 'PrimaryProcessorInitializationStarted',
+  SECONDARY_PROCESSOR_INITIALIZATION_STARTED: 'SecondaryProcessorInitializationStarted',
+  SETUP_ENTERED: 'SetupEntered',
+  SYSTEM_HARDWARE_INITIALIZATION_COMPLETE: 'SystemHardwareInitializationComplete',
+} as const;
+
+/**
+ * @version 1.27.0
+ */
+export type ComputerSystemBootProgressTypes =
+  (typeof ComputerSystemBootProgressTypes)[keyof typeof ComputerSystemBootProgressTypes];
+
+/**
+ * This object describes the last boot progress state.
+ * @version 1.27.0
+ */
+export type ComputerSystemBootProgress = {
+  /**
+   * The number of seconds the system spent booting to the operating system during the last boot.
+   */
+  readonly LastBootTimeSeconds?: number | null;
+  /**
+   * The last boot progress state.
+   */
+  LastState?: ComputerSystemBootProgressTypes | unknown;
+  /**
+   * The date and time when the last boot state was updated.
+   */
+  readonly LastStateTime?: string | null;
+  Oem?: ResourceOem;
+  /**
+   * The OEM-specific last state, if the LastState type is `OEM`.
+   */
+  readonly OemLastState?: string | null;
+};
+
+/**
+ * @version 1.27.0
+ */
+export const ComputerSystemBootSourceOverrideMode = { LEGACY: 'Legacy', UEFI: 'UEFI' } as const;
+
+/**
+ * @version 1.27.0
+ */
+export type ComputerSystemBootSourceOverrideMode =
+  (typeof ComputerSystemBootSourceOverrideMode)[keyof typeof ComputerSystemBootSourceOverrideMode];
+
+/**
+ * @version 1.27.0
+ */
+export const ComputerSystemBootSourceOverrideEnabled = {
+  CONTINUOUS: 'Continuous',
+  DISABLED: 'Disabled',
+  ONCE: 'Once',
+} as const;
+
+/**
+ * @version 1.27.0
+ */
+export type ComputerSystemBootSourceOverrideEnabled =
+  (typeof ComputerSystemBootSourceOverrideEnabled)[keyof typeof ComputerSystemBootSourceOverrideEnabled];
+
+/**
+ * The enumerations of `BootOrderTypes` specify the choice of boot order property to use when controller the persistent boot order for this computer system.
+ * @version 1.27.0
+ */
+export const ComputerSystemBootOrderTypes = {
+  ALIAS_BOOT_ORDER: 'AliasBootOrder',
+  BOOT_ORDER: 'BootOrder',
+} as const;
+
+/**
+ * The enumerations of `BootOrderTypes` specify the choice of boot order property to use when controller the persistent boot order for this computer system.
+ * @version 1.27.0
+ */
+export type ComputerSystemBootOrderTypes =
+  (typeof ComputerSystemBootOrderTypes)[keyof typeof ComputerSystemBootOrderTypes];
+
+/**
+ * @version 1.27.0
+ */
+export const ComputerSystemAutomaticRetryConfig = {
+  DISABLED: 'Disabled',
+  RETRY_ALWAYS: 'RetryAlways',
+  RETRY_ATTEMPTS: 'RetryAttempts',
+} as const;
+
+/**
+ * @version 1.27.0
+ */
+export type ComputerSystemAutomaticRetryConfig =
+  (typeof ComputerSystemAutomaticRetryConfig)[keyof typeof ComputerSystemAutomaticRetryConfig];
+
+/**
+ * The boot information for this resource.
+ * @version 1.27.0
+ */
+export type ComputerSystemBoot = {
+  /**
+   * Ordered array of boot source aliases representing the persistent boot order associated with this computer system.
+   */
+  AliasBootOrder?: Array<ComputerSystemBootSource | unknown>;
+  /**
+   * The number of attempts the system will automatically retry booting.
+   */
+  AutomaticRetryAttempts?: number | null;
+  /**
+   * The configuration of how the system retries booting automatically.
+   */
+  AutomaticRetryConfig?: ComputerSystemAutomaticRetryConfig | unknown;
+  /**
+   * The `BootOptionReference` of the Boot Option to perform a one-time boot from when `BootSourceOverrideTarget` is `UefiBootNext`.
+   */
+  BootNext?: string | null;
+  BootOptions?: OdataV4IdRef;
+  /**
+   * An array of `BootOptionReference` strings that represent the persistent boot order for with this computer system.  Changes to the boot order typically require a system reset before they take effect.  It is likely that a client finds the `@Redfish.Settings` term in this resource, and if it is found, the client makes requests to change boot order settings by modifying the resource identified by the `@Redfish.Settings` term.
+   */
+  BootOrder?: Array<string | null>;
+  /**
+   * The name of the boot order property that the system uses for the persistent boot order.
+   */
+  BootOrderPropertySelection?: ComputerSystemBootOrderTypes | unknown;
+  /**
+   * The state of the boot source override feature.
+   */
+  BootSourceOverrideEnabled?: ComputerSystemBootSourceOverrideEnabled | unknown;
+  /**
+   * The BIOS boot mode to use when the system boots from the `BootSourceOverrideTarget` boot source.
+   */
+  BootSourceOverrideMode?: ComputerSystemBootSourceOverrideMode | unknown;
+  /**
+   * The current boot source to use at the next boot instead of the normal boot device, if `BootSourceOverrideEnabled` does not contain `Disabled`.
+   */
+  BootSourceOverrideTarget?: ComputerSystemBootSource | unknown;
+  Certificates?: OdataV4IdRef;
+  /**
+   * The URI to boot from when `BootSourceOverrideTarget` is set to `UefiHttp`.
+   */
+  HttpBootUri?: string | null;
+  /**
+   * The number of remaining automatic retry boots.
+   */
+  readonly RemainingAutomaticRetryAttempts?: number | null;
+  /**
+   * If the boot should stop on a fault.
+   */
+  StopBootOnFault?: ComputerSystemStopBootOnFault | unknown;
+  /**
+   * The Trusted Module boot requirement.
+   */
+  TrustedModuleRequiredToBoot?: ComputerSystemTrustedModuleRequiredToBoot | unknown;
+  /**
+   * The UEFI device path of the device from which to boot when `BootSourceOverrideTarget` is `UefiTarget`.
+   */
+  UefiTargetBootSourceOverride?: string | null;
+};
+
+/**
+ * This action adds a resource block to a system.
+ * @version 1.27.0
+ */
+export type ComputerSystemAddResourceBlock = {
+  /**
+   * Link to invoke action
+   */
+  target?: string;
+  /**
+   * Friendly action name
+   */
+  title?: string;
+};
+
+/**
+ * The available actions for this resource.
+ * @version 1.27.0
+ */
+export type ComputerSystemActions = {
+  '#ComputerSystem.AddResourceBlock'?: ComputerSystemAddResourceBlock;
+  '#ComputerSystem.Decommission'?: ComputerSystemDecommission;
+  '#ComputerSystem.ExportConfiguration'?: ComputerSystemExportConfiguration;
+  '#ComputerSystem.RemoveResourceBlock'?: ComputerSystemRemoveResourceBlock;
+  '#ComputerSystem.Reset'?: ComputerSystemReset;
+  '#ComputerSystem.SetDefaultBootOrder'?: ComputerSystemSetDefaultBootOrder;
+  Oem?: ComputerSystemOemActions;
+};
+
+/**
  * The collection of `Chassis` resource instances.
  */
 export type ChassisCollection = {
@@ -860,6 +2577,28 @@ export type ResourceOemWritable = {
 };
 
 /**
+ * A condition that requires attention.
+ */
+export type ResourceConditionWritable = {
+  Oem?: ResourceOemWritable;
+  /**
+   * The list of recommended steps to resolve the condition.
+   */
+  ResolutionSteps?: Array<ResolutionStepWritable>;
+};
+
+/**
+ * The status and health of a resource and its children.
+ */
+export type ResourceStatusWritable = {
+  /**
+   * Conditions in this resource that require attention.
+   */
+  Conditions?: Array<ResourceConditionWritable | unknown>;
+  Oem?: ResourceOemWritable;
+};
+
+/**
  * The message that the Redfish service returns.
  * @version 1.2.1
  */
@@ -895,6 +2634,31 @@ export type ResolutionStepWritable = {
    */
   ActionParameters?: Array<unknown>;
   Oem?: ResourceOemWritable;
+};
+
+/**
+ * The available OEM-specific actions for this resource.
+ * @version 1.7.0
+ */
+export type RedundancyOemActionsWritable = {
+  [key: string]: unknown;
+};
+
+/**
+ * The common redundancy definition and structure used in other Redfish schemas.
+ */
+export type RedundancyWritable = {
+  Actions?: RedundancyActions;
+  /**
+   * The redundancy mode of the group.
+   */
+  Mode: RedundancyMode | unknown;
+  Oem?: ResourceOemWritable;
+  /**
+   * An indication of whether redundancy is enabled.
+   */
+  RedundancyEnabled?: boolean | null;
+  Status: ResourceStatusWritable;
 };
 
 /**
@@ -1010,10 +2774,481 @@ export type ServiceRootLinksWritable = {
 };
 
 /**
+ * The collection of `MetricReport` resource instances.
+ */
+export type MetricReportCollectionWritable = {
+  Oem?: ResourceOemWritable;
+};
+
+/**
+ * The available OEM-specific actions for this resource.
+ * @version 1.5.2
+ */
+export type MetricReportOemActionsWritable = {
+  [key: string]: unknown;
+};
+
+/**
+ * Properties that capture a metric value and other associated information.
+ * @version 1.5.2
+ */
+export type MetricReportMetricValueWritable = {
+  Oem?: ResourceOemWritable;
+};
+
+/**
+ * The `MetricReport` schema represents a set of collected metrics.
+ * @version 1.5.2
+ */
+export type MetricReportWritable = {
+  Actions?: MetricReportActions;
+  /**
+   * An array of metric values for the metered items of this metric report.
+   */
+  MetricValues?: Array<MetricReportMetricValueWritable>;
+  Oem?: ResourceOemWritable;
+};
+
+/**
+ * The SNMP settings for an account.
+ * @version 1.14.1
+ */
+export type ManagerAccountSnmpUserInfoWritable = {
+  /**
+   * The secret authentication key for SNMPv3.
+   */
+  AuthenticationKey?: string | null;
+  /**
+   * The authentication protocol for SNMPv3.
+   */
+  AuthenticationProtocol?: ManagerAccountSnmpAuthenticationProtocols | unknown;
+  /**
+   * The secret encryption key used in SNMPv3.
+   */
+  EncryptionKey?: string | null;
+  /**
+   * The encryption protocol for SNMPv3.
+   */
+  EncryptionProtocol?: ManagerAccountSnmpEncryptionProtocols | unknown;
+};
+
+/**
+ * The available OEM-specific actions for this resource.
+ * @version 1.14.1
+ */
+export type ManagerAccountOemActionsWritable = {
+  [key: string]: unknown;
+};
+
+/**
+ * The `ManagerAccount` schema defines the user accounts that are owned by a manager.  Changes to a manager account might affect the current Redfish service connection if this manager is responsible for the Redfish service.
+ * @version 1.14.1
+ */
+export type ManagerAccountWritable = {
+  /**
+   * Indicates the date and time when this account expires.  If `null`, the account never expires.
+   */
+  AccountExpiration?: string | null;
+  /**
+   * The list of services in the manager that the account is allowed to access.
+   */
+  AccountTypes: Array<ManagerAccountAccountTypes | unknown>;
+  Actions?: ManagerAccountActions;
+  /**
+   * The email address associated with this account.
+   */
+  EmailAddress?: string | null;
+  /**
+   * An indication of whether an account is enabled.  An administrator can disable it without deleting the user information.  If `true`, the account is enabled and the user can log in.  If `false`, the account is disabled and, in the future, the user cannot log in.
+   */
+  Enabled?: boolean;
+  Links?: ManagerAccountLinksWritable;
+  /**
+   * An indication of whether the account service automatically locked the account because the lockout threshold was exceeded.  To manually unlock the account before the lockout duration period, an administrator can change the property to `false` to clear the lockout condition.
+   */
+  Locked?: boolean;
+  /**
+   * The multi-factor authentication bypass settings for this account.
+   */
+  MFABypass?: AccountServiceMfaBypass | unknown;
+  /**
+   * The OEM account types.
+   */
+  OEMAccountTypes?: Array<string | null>;
+  Oem?: ResourceOemWritable;
+  /**
+   * The address used to receive one-time passcode messages for multi-factor authentication.
+   */
+  OneTimePasscodeDeliveryAddress?: string | null;
+  /**
+   * The password.  Use this property with a `PATCH` or `PUT` to write the password for the account.  This property is `null` in responses.
+   */
+  Password?: string | null;
+  /**
+   * An indication of whether the service requires that the password for this account be changed before further access to the account is allowed.
+   */
+  PasswordChangeRequired?: boolean | null;
+  /**
+   * Indicates the date and time when this account password expires.  If `null`, the account password never expires.
+   */
+  PasswordExpiration?: string | null;
+  /**
+   * The contact phone number associated with this account.
+   */
+  PhoneNumber?: string | null;
+  /**
+   * The role for this account.
+   */
+  RoleId?: string;
+  /**
+   * The SNMP settings for this account.
+   */
+  SNMP?: ManagerAccountSnmpUserInfoWritable | unknown;
+  /**
+   * Indicates if the service needs to use the account types exactly as specified when the account is created or updated.
+   */
+  StrictAccountTypes?: boolean | null;
+  /**
+   * The username for the account.
+   */
+  UserName?: string;
+};
+
+/**
+ * The links to other resources that are related to this resource.
+ * @version 1.14.1
+ */
+export type ManagerAccountLinksWritable = {
+  Oem?: ResourceOemWritable;
+};
+
+/**
  * The collection of `ComputerSystem` resource instances.
  */
 export type ComputerSystemCollectionWritable = {
   Oem?: ResourceOemWritable;
+};
+
+/**
+ * The information about a WebSocket serial console service that this system provides.
+ * @version 1.27.0
+ */
+export type ComputerSystemWebSocketConsoleWritable = {
+  /**
+   * An indication of whether the service is enabled for this system.
+   */
+  ServiceEnabled?: boolean;
+};
+
+/**
+ * This type describes the host watchdog timer functionality for this system.
+ * @version 1.27.0
+ */
+export type ComputerSystemWatchdogTimerWritable = {
+  /**
+   * An indication of whether a user has enabled the host watchdog timer functionality.  This property indicates only that a user has enabled the timer.  To activate the timer, installation of additional host-based software is necessary; an update to this property does not initiate the timer.
+   */
+  FunctionEnabled: boolean | null;
+  Oem?: ResourceOemWritable;
+  Status?: ResourceStatusWritable;
+  /**
+   * The action to perform when the watchdog timer reaches its timeout value.
+   */
+  TimeoutAction: ComputerSystemWatchdogTimeoutActions | unknown;
+  /**
+   * The action to perform when the watchdog timer is close to reaching its timeout value.  This action typically occurs from three to ten seconds before to the timeout value, but the exact timing is dependent on the implementation.
+   */
+  WarningAction?: ComputerSystemWatchdogWarningActions | unknown;
+};
+
+/**
+ * The Trusted Module installed in the system.
+ * @version 1.27.0
+ */
+export type ComputerSystemTrustedModulesWritable = {
+  Oem?: ResourceOemWritable;
+  Status?: ResourceStatusWritable;
+};
+
+/**
+ * The information about a serial console service that this system provides.
+ * @version 1.27.0
+ */
+export type ComputerSystemSerialConsoleProtocolWritable = {
+  /**
+   * The protocol port.
+   */
+  Port?: number | null;
+  /**
+   * An indication of whether the service is enabled for this system.
+   */
+  ServiceEnabled?: boolean;
+};
+
+/**
+ * The central processors of the system in general detail.
+ * @version 1.27.0
+ */
+export type ComputerSystemProcessorSummaryWritable = {
+  Status?: ResourceStatusWritable;
+  /**
+   * An indication of whether threading is enabled on all processors in this system.
+   */
+  ThreadingEnabled?: boolean;
+};
+
+/**
+ * The available OEM-specific actions for this resource.
+ * @version 1.27.0
+ */
+export type ComputerSystemOemActionsWritable = {
+  [key: string]: unknown;
+};
+
+/**
+ * The memory of the system in general detail.
+ * @version 1.27.0
+ */
+export type ComputerSystemMemorySummaryWritable = {
+  Status?: ResourceStatusWritable;
+};
+
+/**
+ * The links to other resources that are related to this resource.
+ * @version 1.27.0
+ */
+export type ComputerSystemLinksWritable = {
+  Oem?: ResourceOemWritable;
+  /**
+   * An array of links to the resource blocks that are used in this computer system.
+   */
+  ResourceBlocks?: Array<OdataV4IdRefWritable>;
+};
+
+/**
+ * The key management settings of a computer system.
+ * @version 1.27.0
+ */
+export type ComputerSystemKeyManagementWritable = {
+  /**
+   * The KMIP servers to which this computer system is subscribed.
+   */
+  KMIPServers?: Array<ComputerSystemKmipServerWritable | unknown>;
+};
+
+/**
+ * The KMIP server settings for a computer system.
+ * @version 1.27.0
+ */
+export type ComputerSystemKmipServerWritable = {
+  /**
+   * The KMIP server address.
+   */
+  Address?: string | null;
+  /**
+   * The duration the system caches KMIP data.
+   */
+  CacheDuration?: string | null;
+  /**
+   * The cache policy to control how KMIP data is cached.
+   */
+  CachePolicy?: ComputerSystemKmipCachePolicy | unknown;
+  /**
+   * The password to access the KMIP server.  The value is `null` in responses.
+   */
+  Password?: string | null;
+  /**
+   * The KMIP server port.
+   */
+  Port?: number | null;
+  /**
+   * The username to access the KMIP server.
+   */
+  Username?: string | null;
+};
+
+/**
+ * The services that might be running or installed on the system.
+ * @version 1.27.0
+ */
+export type ComputerSystemHostedServicesWritable = {
+  Oem?: ResourceOemWritable;
+};
+
+/**
+ * The information about the serial console services that this system provides.
+ * @version 1.27.0
+ */
+export type ComputerSystemHostSerialConsoleWritable = {
+  IPMI?: ComputerSystemSerialConsoleProtocolWritable;
+  SSH?: ComputerSystemSerialConsoleProtocolWritable;
+  Telnet?: ComputerSystemSerialConsoleProtocolWritable;
+  WebSocket?: ComputerSystemWebSocketConsoleWritable;
+};
+
+/**
+ * The information about a graphical console service for this system.
+ * @version 1.27.0
+ */
+export type ComputerSystemHostGraphicalConsoleWritable = {
+  /**
+   * The protocol port.
+   */
+  Port?: number | null;
+  /**
+   * An indication of whether the service is enabled for this system.
+   */
+  ServiceEnabled?: boolean;
+};
+
+/**
+ * The `ComputerSystem` schema represents a computer or system instance and the software-visible resources, or items within the data plane, such as memory, CPU, and other devices that it can access.  Details of those resources or subsystems are also linked through this resource.
+ * @version 1.27.0
+ */
+export type ComputerSystemWritable = {
+  Actions?: ComputerSystemActions;
+  /**
+   * The user-definable tag that can track this computer system for inventory or other client purposes.
+   */
+  AssetTag?: string | null;
+  Boot?: ComputerSystemBootWritable;
+  /**
+   * This object describes the last boot progress state.
+   */
+  BootProgress?: ComputerSystemBootProgressWritable | unknown;
+  /**
+   * Information about the composition capabilities and state of the computer system.
+   */
+  Composition?: unknown;
+  GraphicalConsole?: ComputerSystemHostGraphicalConsoleWritable;
+  /**
+   * The DNS host name, without any domain information.
+   */
+  HostName?: string | null;
+  HostWatchdogTimer?: ComputerSystemWatchdogTimerWritable;
+  HostedServices?: ComputerSystemHostedServicesWritable;
+  IPMIHostInterface?: ComputerSystemIpmiHostInterface;
+  /**
+   * The idle power saver settings of the computer system.
+   */
+  IdlePowerSaver?: ComputerSystemIdlePowerSaver | unknown;
+  /**
+   * The state of the indicator LED, which identifies the system.
+   *
+   * @deprecated
+   */
+  IndicatorLED?: ComputerSystemIndicatorLed | unknown;
+  /**
+   * The key management settings of the computer system.
+   */
+  KeyManagement?: ComputerSystemKeyManagementWritable | unknown;
+  Links?: ComputerSystemLinksWritable;
+  /**
+   * An indicator allowing an operator to physically locate this resource.
+   */
+  LocationIndicatorActive?: boolean | null;
+  /**
+   * An array of DSP0274-defined measurement blocks.
+   *
+   * @deprecated
+   */
+  Measurements?: Array<unknown>;
+  MemorySummary?: ComputerSystemMemorySummaryWritable;
+  Oem?: ResourceOemWritable;
+  /**
+   * The number of seconds to delay power on after a `Reset` action requesting `PowerCycle` or `FullPowerCycle`.  Zero seconds indicates no delay.
+   */
+  PowerCycleDelaySeconds?: number | null;
+  /**
+   * The power mode setting of the computer system.
+   */
+  PowerMode?: ComputerSystemPowerMode | unknown;
+  /**
+   * The number of seconds to delay power off during a reset.  Zero seconds indicates no delay to power off.
+   */
+  PowerOffDelaySeconds?: number | null;
+  /**
+   * The number of seconds to delay power on after an externally performed power cycle or during a reset.  Zero seconds indicates no delay to power up.
+   */
+  PowerOnDelaySeconds?: number | null;
+  PowerRestorePolicy?: ComputerSystemPowerRestorePolicyTypes;
+  ProcessorSummary?: ComputerSystemProcessorSummaryWritable;
+  SerialConsole?: ComputerSystemHostSerialConsoleWritable;
+  Status?: ResourceStatusWritable;
+  /**
+   * An array of trusted modules in the system.
+   *
+   * @deprecated
+   */
+  TrustedModules?: Array<ComputerSystemTrustedModulesWritable>;
+  VirtualMediaConfig?: ComputerSystemVirtualMediaConfig;
+};
+
+/**
+ * This object describes the last boot progress state.
+ * @version 1.27.0
+ */
+export type ComputerSystemBootProgressWritable = {
+  Oem?: ResourceOemWritable;
+};
+
+/**
+ * The boot information for this resource.
+ * @version 1.27.0
+ */
+export type ComputerSystemBootWritable = {
+  /**
+   * Ordered array of boot source aliases representing the persistent boot order associated with this computer system.
+   */
+  AliasBootOrder?: Array<ComputerSystemBootSource | unknown>;
+  /**
+   * The number of attempts the system will automatically retry booting.
+   */
+  AutomaticRetryAttempts?: number | null;
+  /**
+   * The configuration of how the system retries booting automatically.
+   */
+  AutomaticRetryConfig?: ComputerSystemAutomaticRetryConfig | unknown;
+  /**
+   * The `BootOptionReference` of the Boot Option to perform a one-time boot from when `BootSourceOverrideTarget` is `UefiBootNext`.
+   */
+  BootNext?: string | null;
+  /**
+   * An array of `BootOptionReference` strings that represent the persistent boot order for with this computer system.  Changes to the boot order typically require a system reset before they take effect.  It is likely that a client finds the `@Redfish.Settings` term in this resource, and if it is found, the client makes requests to change boot order settings by modifying the resource identified by the `@Redfish.Settings` term.
+   */
+  BootOrder?: Array<string | null>;
+  /**
+   * The name of the boot order property that the system uses for the persistent boot order.
+   */
+  BootOrderPropertySelection?: ComputerSystemBootOrderTypes | unknown;
+  /**
+   * The state of the boot source override feature.
+   */
+  BootSourceOverrideEnabled?: ComputerSystemBootSourceOverrideEnabled | unknown;
+  /**
+   * The BIOS boot mode to use when the system boots from the `BootSourceOverrideTarget` boot source.
+   */
+  BootSourceOverrideMode?: ComputerSystemBootSourceOverrideMode | unknown;
+  /**
+   * The current boot source to use at the next boot instead of the normal boot device, if `BootSourceOverrideEnabled` does not contain `Disabled`.
+   */
+  BootSourceOverrideTarget?: ComputerSystemBootSource | unknown;
+  /**
+   * The URI to boot from when `BootSourceOverrideTarget` is set to `UefiHttp`.
+   */
+  HttpBootUri?: string | null;
+  /**
+   * If the boot should stop on a fault.
+   */
+  StopBootOnFault?: ComputerSystemStopBootOnFault | unknown;
+  /**
+   * The Trusted Module boot requirement.
+   */
+  TrustedModuleRequiredToBoot?: ComputerSystemTrustedModuleRequiredToBoot | unknown;
+  /**
+   * The UEFI device path of the device from which to boot when `BootSourceOverrideTarget` is `UefiTarget`.
+   */
+  UefiTargetBootSourceOverride?: string | null;
 };
 
 /**
@@ -1120,6 +3355,71 @@ export type GetServiceRootResponses = {
 };
 
 export type GetServiceRootResponse = GetServiceRootResponses[keyof GetServiceRootResponses];
+
+export type GetAccountServiceAccountByIdData = {
+  body?: never;
+  path: {
+    /**
+     * The value of the Id property of the ManagerAccount resource
+     */
+    ManagerAccountId: string;
+  };
+  query?: {
+    /**
+     * Expand related resources per OData URL conventions.
+     */
+    $expand?: string;
+    /**
+     * Filter collection members using an OData filter expression.
+     */
+    $filter?: string;
+    /**
+     * Select a subset of properties to include in the response.
+     */
+    $select?: string;
+    /**
+     * Skip a number of collection members before returning results.
+     */
+    $skip?: number;
+    /**
+     * Limit the number of collection members returned.
+     */
+    $top?: number;
+    /**
+     * Redfish query option to request an excerpted payload.
+     */
+    excerpt?: string;
+    /**
+     * Include origin-of-condition data when returning condition information.
+     */
+    includeoriginofcondition?: string;
+    /**
+     * Redfish query option to request only selected payload sections.
+     */
+    only?: string;
+  };
+  url: '/redfish/v1/AccountService/Accounts/{ManagerAccountId}';
+};
+
+export type GetAccountServiceAccountByIdErrors = {
+  /**
+   * Error condition
+   */
+  default: RedfishError;
+};
+
+export type GetAccountServiceAccountByIdError =
+  GetAccountServiceAccountByIdErrors[keyof GetAccountServiceAccountByIdErrors];
+
+export type GetAccountServiceAccountByIdResponses = {
+  /**
+   * The response contains a representation of the ManagerAccount resource
+   */
+  200: ManagerAccount;
+};
+
+export type GetAccountServiceAccountByIdResponse =
+  GetAccountServiceAccountByIdResponses[keyof GetAccountServiceAccountByIdResponses];
 
 export type GetChassisData = {
   body?: never;
@@ -1410,3 +3710,233 @@ export type GetSystemsResponses = {
 };
 
 export type GetSystemsResponse = GetSystemsResponses[keyof GetSystemsResponses];
+
+export type GetSystemByIdData = {
+  body?: never;
+  path: {
+    /**
+     * The value of the Id property of the ComputerSystem resource
+     */
+    ComputerSystemId: string;
+  };
+  query?: {
+    /**
+     * Expand related resources per OData URL conventions.
+     */
+    $expand?: string;
+    /**
+     * Filter collection members using an OData filter expression.
+     */
+    $filter?: string;
+    /**
+     * Select a subset of properties to include in the response.
+     */
+    $select?: string;
+    /**
+     * Skip a number of collection members before returning results.
+     */
+    $skip?: number;
+    /**
+     * Limit the number of collection members returned.
+     */
+    $top?: number;
+    /**
+     * Redfish query option to request an excerpted payload.
+     */
+    excerpt?: string;
+    /**
+     * Include origin-of-condition data when returning condition information.
+     */
+    includeoriginofcondition?: string;
+    /**
+     * Redfish query option to request only selected payload sections.
+     */
+    only?: string;
+  };
+  url: '/redfish/v1/Systems/{ComputerSystemId}';
+};
+
+export type GetSystemByIdErrors = {
+  /**
+   * Error condition
+   */
+  default: RedfishError;
+};
+
+export type GetSystemByIdError = GetSystemByIdErrors[keyof GetSystemByIdErrors];
+
+export type GetSystemByIdResponses = {
+  /**
+   * The response contains a representation of the ComputerSystem resource
+   */
+  200: ComputerSystem;
+};
+
+export type GetSystemByIdResponse = GetSystemByIdResponses[keyof GetSystemByIdResponses];
+
+export type PostSystemResetData = {
+  body: ComputerSystemResetRequestBody;
+  path: {
+    /**
+     * The value of the Id property of the ComputerSystem resource
+     */
+    ComputerSystemId: string;
+  };
+  query?: never;
+  url: '/redfish/v1/Systems/{ComputerSystemId}/Actions/ComputerSystem.Reset';
+};
+
+export type PostSystemResetErrors = {
+  /**
+   * Error condition
+   */
+  default: RedfishError;
+};
+
+export type PostSystemResetError = PostSystemResetErrors[keyof PostSystemResetErrors];
+
+export type PostSystemResetResponses = {
+  /**
+   * The response contains the results of the Reset action
+   */
+  200: RedfishError;
+  /**
+   * The response contains the results of the Reset action
+   */
+  201: RedfishError;
+  /**
+   * Accepted; a task has been generated
+   */
+  202: Task;
+  /**
+   * Success, but no response data
+   */
+  204: void;
+};
+
+export type PostSystemResetResponse = PostSystemResetResponses[keyof PostSystemResetResponses];
+
+export type GetTelemetryServiceMetricReportsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Expand related resources per OData URL conventions.
+     */
+    $expand?: string;
+    /**
+     * Filter collection members using an OData filter expression.
+     */
+    $filter?: string;
+    /**
+     * Select a subset of properties to include in the response.
+     */
+    $select?: string;
+    /**
+     * Skip a number of collection members before returning results.
+     */
+    $skip?: number;
+    /**
+     * Limit the number of collection members returned.
+     */
+    $top?: number;
+    /**
+     * Redfish query option to request an excerpted payload.
+     */
+    excerpt?: string;
+    /**
+     * Include origin-of-condition data when returning condition information.
+     */
+    includeoriginofcondition?: string;
+    /**
+     * Redfish query option to request only selected payload sections.
+     */
+    only?: string;
+  };
+  url: '/redfish/v1/TelemetryService/MetricReports';
+};
+
+export type GetTelemetryServiceMetricReportsErrors = {
+  /**
+   * Error condition
+   */
+  default: RedfishError;
+};
+
+export type GetTelemetryServiceMetricReportsError =
+  GetTelemetryServiceMetricReportsErrors[keyof GetTelemetryServiceMetricReportsErrors];
+
+export type GetTelemetryServiceMetricReportsResponses = {
+  /**
+   * The response contains a representation of the MetricReportCollection resource
+   */
+  200: MetricReportCollection;
+};
+
+export type GetTelemetryServiceMetricReportsResponse =
+  GetTelemetryServiceMetricReportsResponses[keyof GetTelemetryServiceMetricReportsResponses];
+
+export type GetTelemetryServiceMetricReportByIdData = {
+  body?: never;
+  path: {
+    /**
+     * The value of the Id property of the MetricReport resource
+     */
+    MetricReportId: string;
+  };
+  query?: {
+    /**
+     * Expand related resources per OData URL conventions.
+     */
+    $expand?: string;
+    /**
+     * Filter collection members using an OData filter expression.
+     */
+    $filter?: string;
+    /**
+     * Select a subset of properties to include in the response.
+     */
+    $select?: string;
+    /**
+     * Skip a number of collection members before returning results.
+     */
+    $skip?: number;
+    /**
+     * Limit the number of collection members returned.
+     */
+    $top?: number;
+    /**
+     * Redfish query option to request an excerpted payload.
+     */
+    excerpt?: string;
+    /**
+     * Include origin-of-condition data when returning condition information.
+     */
+    includeoriginofcondition?: string;
+    /**
+     * Redfish query option to request only selected payload sections.
+     */
+    only?: string;
+  };
+  url: '/redfish/v1/TelemetryService/MetricReports/{MetricReportId}';
+};
+
+export type GetTelemetryServiceMetricReportByIdErrors = {
+  /**
+   * Error condition
+   */
+  default: RedfishError;
+};
+
+export type GetTelemetryServiceMetricReportByIdError =
+  GetTelemetryServiceMetricReportByIdErrors[keyof GetTelemetryServiceMetricReportByIdErrors];
+
+export type GetTelemetryServiceMetricReportByIdResponses = {
+  /**
+   * The response contains a representation of the MetricReport resource
+   */
+  200: MetricReport;
+};
+
+export type GetTelemetryServiceMetricReportByIdResponse =
+  GetTelemetryServiceMetricReportByIdResponses[keyof GetTelemetryServiceMetricReportByIdResponses];

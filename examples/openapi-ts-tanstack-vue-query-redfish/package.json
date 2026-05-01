@@ -7,6 +7,7 @@
     "build-only": "vite build",
     "build": "vue-tsc --build --force && vite build",
     "dev": "vite",
+    "dev:fresh": "rm -rf node_modules/.vite && vite",
     "format": "oxfmt src/",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

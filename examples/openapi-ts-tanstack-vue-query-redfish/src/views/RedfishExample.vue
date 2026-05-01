@@ -1,22 +1,14 @@
 <script setup lang="ts">
-import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query';
-import { storeToRefs } from 'pinia';
-import { useRouter } from 'vue-router';
+import { useMutation, useQuery } from '@tanstack/vue-query';
 
 import {
-  deleteSessionServiceSessionByIdMutation,
   getChassisOptions,
   getServiceRootOptions,
   getSystemsOptions,
   postEventServiceSubmitTestEventMutation,
 } from '@/client/@tanstack/vue-query.gen';
+import { AppHeader } from '@/components/AppHeader';
 import { useSSE } from '@/composables/useSSE';
-import { useAuthStore } from '@/stores/auth';
-
-const router = useRouter();
-const queryClient = useQueryClient();
-const authStore = useAuthStore();
-const { sessionUri } = storeToRefs(authStore);
 
 // SSE → Vue Query cache invalidation is mounted globally in App.vue
 // (`useSSEQueryInvalidation`); the call here only opens / displays the
@@ -36,65 +28,13 @@ function pingSse(): void {
     body: { MessageId: 'HeartbeatEvent.1.1.RedfishServiceFunctional' },
   });
 }
-
-const logoutMutation = useMutation({
-  ...deleteSessionServiceSessionByIdMutation(),
-  // Logout is best-effort: even if the DELETE fails (BMC unreachable, token
-  // already expired, …) we still tear down local state and bounce to /login.
-  onSettled: tearDownSession,
-});
-
-function tearDownSession(): void {
-  sse.disconnect();
-  authStore.clearSession();
-  queryClient.clear();
-  void router.push('/login');
-}
-
-function handleLogout(): void {
-  // The session URI from login looks like
-  // `/redfish/v1/SessionService/Sessions/<id>`.
-  const sessionId = sessionUri.value?.split('/').pop();
-  if (!sessionId) {
-    tearDownSession();
-    return;
-  }
-  logoutMutation.mutate({ path: { SessionId: sessionId } });
-}
 </script>
 
 <template>
   <div class="min-h-screen bg-gray-900 text-white">
-    <header
-      class="flex items-center justify-between border-b border-gray-700 bg-gray-800 px-6 py-3"
-    >
-      <h1 class="text-lg font-semibold">Redfish Dashboard</h1>
-      <div class="flex items-center gap-4">
-        <span class="text-sm text-gray-400">
-          SSE:
-          <span
-            :class="{
-              'text-gray-500': sse.status.value === 'disconnected',
-              'text-green-400': sse.isConnected.value,
-              'text-red-400': sse.status.value === 'error',
-              'text-yellow-400': sse.status.value === 'reconnecting',
-            }"
-          >
-            {{ sse.status.value }}
-          </span>
-        </span>
-        <button
-          class="rounded bg-red-600 px-3 py-1 text-sm font-medium transition hover:bg-red-700 disabled:opacity-50"
-          :disabled="logoutMutation.isPending.value"
-          type="button"
-          @click="handleLogout"
-        >
-          Logout
-        </button>
-      </div>
-    </header>
+    <AppHeader />
 
-    <main class="mx-auto max-w-7xl p-6">
+    <main id="main-content" class="mx-auto max-w-7xl p-6">
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section class="rounded-lg bg-gray-800 p-5">
           <h2 class="mb-3 text-lg font-semibold">Service Root</h2>

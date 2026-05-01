@@ -20,6 +20,49 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const bmcTarget = env.VITE_BMC_URL || process.env.VITE_BMC_URL;
 
+  // bmcweb routes the SSE endpoint on `Accept: text/event-stream` and
+  // returns `404` when it sees `application/json`. We therefore branch
+  // on the request URL inside the single `/redfish` proxy: SSE keeps
+  // the browser's `Accept`, everything else is forced to JSON. Doing
+  // it inside one rule (rather than two ordered rules) is robust
+  // against formatter passes reordering object keys.
+  const SSE_PATH = '/redfish/v1/EventService/SSE';
+
+  const redfishProxy: ProxyOptions = {
+    changeOrigin: true,
+    configure: (proxy) => {
+      proxy.on('proxyReq', (proxyReq, req) => {
+        const isSse = req.url?.startsWith(SSE_PATH) ?? false;
+        if (isSse) {
+          // Keep `Accept: text/event-stream` from the browser; strip
+          // `accept-encoding` so bmcweb cannot return a gzipped body
+          // that the SSE reader cannot decode chunk-by-chunk.
+          proxyReq.removeHeader('accept-encoding');
+        } else {
+          proxyReq.setHeader('Accept', 'application/json');
+        }
+      });
+      proxy.on('proxyRes', (proxyRes, req, res) => {
+        delete proxyRes.headers['strict-transport-security'];
+        delete proxyRes.headers['content-encoding'];
+        const isSse = req.url?.startsWith(SSE_PATH) ?? false;
+        if (isSse) {
+          proxyRes.headers['x-accel-buffering'] = 'no';
+          proxyRes.headers['cache-control'] = 'no-cache';
+          res.socket?.setTimeout(0);
+        }
+      });
+      proxy.on('error', (err, req) => {
+        const isSse = req.url?.startsWith(SSE_PATH) ?? false;
+        if (isSse) console.error('[vite] SSE proxy error:', err.message);
+      });
+    },
+    proxyTimeout: 0,
+    secure: false,
+    target: bmcTarget,
+    timeout: 0,
+  };
+
   return {
     build: {
       sourcemap: true,
@@ -39,66 +82,6 @@ export default defineConfig(({ mode }) => {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
     },
-    server: bmcTarget
-      ? {
-          proxy: {
-            
-            
-            
-            
-            
-            
-            
-            // Standard JSON traffic for everything else under
-// `/redfish/...`.
-'/redfish': {
-              changeOrigin: true,
-              configure: (proxy) => {
-                proxy.on('proxyReq', (proxyReq) => {
-                  proxyReq.setHeader('Accept', 'application/json');
-                });
-                proxy.on('proxyRes', (proxyRes) => {
-                  delete proxyRes.headers['strict-transport-security'];
-                  delete proxyRes.headers['content-encoding'];
-                });
-              },
-              secure: false,
-              target: bmcTarget,
-            } satisfies ProxyOptions,
-
-            
-            
-            // SSE: keep the connection open, disable buffering /
-// encoding, leave the browser's `Accept: text/event-stream`
-// header alone (bmcweb routes on it and 404s otherwise).
-//
-// Declared *before* the `/redfish` rule so vite's proxy
-// matcher cannot accidentally route SSE through the JSON
-// rule and clobber `Accept` to `application/json`.
-'/redfish/v1/EventService/SSE': {
-              changeOrigin: true,
-              configure: (proxy) => {
-                proxy.on('proxyReq', (proxyReq) => {
-                  proxyReq.removeHeader('accept-encoding');
-                });
-                proxy.on('proxyRes', (proxyRes, _req, res) => {
-                  delete proxyRes.headers['strict-transport-security'];
-                  delete proxyRes.headers['content-encoding'];
-                  proxyRes.headers['x-accel-buffering'] = 'no';
-                  proxyRes.headers['cache-control'] = 'no-cache';
-                  res.socket?.setTimeout(0);
-                });
-                proxy.on('error', (err) => {
-                  console.error('[vite] SSE proxy error:', err.message);
-                });
-              },
-              proxyTimeout: 0,
-              secure: false,
-              target: bmcTarget,
-              timeout: 0,
-            } satisfies ProxyOptions,
-          },
-        }
-      : undefined,
+    server: bmcTarget ? { proxy: { '/redfish': redfishProxy } } : undefined,
   };
 });

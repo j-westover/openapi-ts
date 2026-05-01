@@ -6,18 +6,26 @@ import type { AxiosError } from 'axios';
 import { client } from '../client.gen';
 import {
   deleteSessionServiceSessionById,
+  getAccountServiceAccountById,
   getChassis,
   getServiceRoot,
   getSessionServiceSessions,
+  getSystemById,
   getSystems,
+  getTelemetryServiceMetricReportById,
+  getTelemetryServiceMetricReports,
   type Options,
   postEventServiceSubmitTestEvent,
   postSessionServiceSessions,
+  postSystemReset,
 } from '../sdk.gen';
 import type {
   DeleteSessionServiceSessionByIdData,
   DeleteSessionServiceSessionByIdError,
   DeleteSessionServiceSessionByIdResponse,
+  GetAccountServiceAccountByIdData,
+  GetAccountServiceAccountByIdError,
+  GetAccountServiceAccountByIdResponse,
   GetChassisData,
   GetChassisError,
   GetChassisResponse,
@@ -27,15 +35,27 @@ import type {
   GetSessionServiceSessionsData,
   GetSessionServiceSessionsError,
   GetSessionServiceSessionsResponse,
+  GetSystemByIdData,
+  GetSystemByIdError,
+  GetSystemByIdResponse,
   GetSystemsData,
   GetSystemsError,
   GetSystemsResponse,
+  GetTelemetryServiceMetricReportByIdData,
+  GetTelemetryServiceMetricReportByIdError,
+  GetTelemetryServiceMetricReportByIdResponse,
+  GetTelemetryServiceMetricReportsData,
+  GetTelemetryServiceMetricReportsError,
+  GetTelemetryServiceMetricReportsResponse,
   PostEventServiceSubmitTestEventData,
   PostEventServiceSubmitTestEventError,
   PostEventServiceSubmitTestEventResponse,
   PostSessionServiceSessionsData,
   PostSessionServiceSessionsError,
   PostSessionServiceSessionsResponse,
+  PostSystemResetData,
+  PostSystemResetError,
+  PostSystemResetResponse,
 } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
@@ -97,6 +117,31 @@ export const getServiceRootOptions = (options?: Options<GetServiceRootData>) =>
       return data;
     },
     queryKey: getServiceRootQueryKey(options),
+  });
+
+export const getAccountServiceAccountByIdQueryKey = (
+  options: Options<GetAccountServiceAccountByIdData>,
+) => createQueryKey('getAccountServiceAccountById', options);
+
+export const getAccountServiceAccountByIdOptions = (
+  options: Options<GetAccountServiceAccountByIdData>,
+) =>
+  queryOptions<
+    GetAccountServiceAccountByIdResponse,
+    AxiosError<GetAccountServiceAccountByIdError>,
+    GetAccountServiceAccountByIdResponse,
+    ReturnType<typeof getAccountServiceAccountByIdQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getAccountServiceAccountById({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getAccountServiceAccountByIdQueryKey(options),
   });
 
 export const getChassisQueryKey = (options?: Options<GetChassisData>) =>
@@ -238,4 +283,100 @@ export const getSystemsOptions = (options?: Options<GetSystemsData>) =>
       return data;
     },
     queryKey: getSystemsQueryKey(options),
+  });
+
+export const getSystemByIdQueryKey = (options: Options<GetSystemByIdData>) =>
+  createQueryKey('getSystemById', options);
+
+export const getSystemByIdOptions = (options: Options<GetSystemByIdData>) =>
+  queryOptions<
+    GetSystemByIdResponse,
+    AxiosError<GetSystemByIdError>,
+    GetSystemByIdResponse,
+    ReturnType<typeof getSystemByIdQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getSystemById({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getSystemByIdQueryKey(options),
+  });
+
+export const postSystemResetMutation = (
+  options?: Partial<Options<PostSystemResetData>>,
+): UseMutationOptions<
+  PostSystemResetResponse,
+  AxiosError<PostSystemResetError>,
+  Options<PostSystemResetData>
+> => {
+  const mutationOptions: UseMutationOptions<
+    PostSystemResetResponse,
+    AxiosError<PostSystemResetError>,
+    Options<PostSystemResetData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await postSystemReset({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const getTelemetryServiceMetricReportsQueryKey = (
+  options?: Options<GetTelemetryServiceMetricReportsData>,
+) => createQueryKey('getTelemetryServiceMetricReports', options);
+
+export const getTelemetryServiceMetricReportsOptions = (
+  options?: Options<GetTelemetryServiceMetricReportsData>,
+) =>
+  queryOptions<
+    GetTelemetryServiceMetricReportsResponse,
+    AxiosError<GetTelemetryServiceMetricReportsError>,
+    GetTelemetryServiceMetricReportsResponse,
+    ReturnType<typeof getTelemetryServiceMetricReportsQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getTelemetryServiceMetricReports({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getTelemetryServiceMetricReportsQueryKey(options),
+  });
+
+export const getTelemetryServiceMetricReportByIdQueryKey = (
+  options: Options<GetTelemetryServiceMetricReportByIdData>,
+) => createQueryKey('getTelemetryServiceMetricReportById', options);
+
+export const getTelemetryServiceMetricReportByIdOptions = (
+  options: Options<GetTelemetryServiceMetricReportByIdData>,
+) =>
+  queryOptions<
+    GetTelemetryServiceMetricReportByIdResponse,
+    AxiosError<GetTelemetryServiceMetricReportByIdError>,
+    GetTelemetryServiceMetricReportByIdResponse,
+    ReturnType<typeof getTelemetryServiceMetricReportByIdQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getTelemetryServiceMetricReportById({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getTelemetryServiceMetricReportByIdQueryKey(options),
   });
