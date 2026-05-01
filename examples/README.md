@@ -19,6 +19,7 @@ This directory contains integration examples demonstrating how to use `@hey-api/
 - **openapi-ts-tanstack-react-query** - React with TanStack Query
 - **openapi-ts-tanstack-svelte-query** - Svelte with TanStack Query
 - **openapi-ts-tanstack-vue-query** - Vue with TanStack Query
+- **openapi-ts-tanstack-vue-query-redfish** - Vue + TanStack Query against the DMTF Redfish API: typed SDK with `client-axios`, fetch-based SSE, SSE → Vue Query cache invalidation, scoped/full SDK split, in-process Vite mock
 
 ## Generated Code
 

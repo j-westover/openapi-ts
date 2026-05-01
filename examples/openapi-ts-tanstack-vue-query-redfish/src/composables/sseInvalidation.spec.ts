@@ -9,11 +9,12 @@
  */
 
 import type { QueryClient, QueryKey } from '@tanstack/vue-query';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { EventRecord } from '@/composables/parseSSEEvent';
 import {
   DEFAULT_INVALIDATION_RULES,
+  REDFISH_OPERATION_URLS,
   type SseInvalidationRule,
 } from '@/composables/sseInvalidationRules';
 import { applySseEventInvalidation } from '@/composables/useSSEQueryInvalidation';
@@ -229,6 +230,190 @@ describe('applySseEventInvalidation', () => {
       applySseEventInvalidation(client, { Message: 'anything', MessageId: 'anything' }, [
         malformedRule,
       ]);
+      expect(calls).toHaveLength(0);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Design-doc matrix (vue-query-sse-cache-invalidation.md §Testing)
+// ---------------------------------------------------------------------------
+//
+// These exercises register synthetic operation ids in
+// `REDFISH_OPERATION_URLS` so the test cache can include resources
+// (sensors, sub-collections) the example app does not currently scope.
+// The registry is restored after the suite finishes.
+
+const REGISTRY = REDFISH_OPERATION_URLS as Record<string, string>;
+const SYNTHETIC_OPS: ReadonlyArray<readonly [string, string]> = [
+  ['getChassisById', '/redfish/v1/Chassis/{ChassisId}'],
+  ['getChassisSensors', '/redfish/v1/Chassis/{ChassisId}/Sensors'],
+  ['getChassisSensorById', '/redfish/v1/Chassis/{ChassisId}/Sensors/{SensorId}'],
+  ['getTaskService', '/redfish/v1/TaskService'],
+  ['getTaskServiceTasks', '/redfish/v1/TaskService/Tasks'],
+];
+
+describe('design-doc matrix', () => {
+  beforeAll(() => {
+    for (const [opId, url] of SYNTHETIC_OPS) {
+      REGISTRY[opId] = url;
+    }
+  });
+  afterAll(() => {
+    for (const [opId] of SYNTHETIC_OPS) {
+      delete REGISTRY[opId];
+    }
+  });
+
+  describe('per-instance targeting (BMC_0 vs BMC_1 isolation)', () => {
+    it('invalidates the BMC_0 chain and leaves BMC_1 untouched', () => {
+      const queries: ReadonlyArray<FakeCachedQuery> = [
+        cached('getChassis', '/redfish/v1/Chassis'),
+        cached('getChassisById', '/redfish/v1/Chassis/BMC_0', { ChassisId: 'BMC_0' }),
+        cached('getChassisById', '/redfish/v1/Chassis/BMC_1', { ChassisId: 'BMC_1' }),
+        cached('getChassisSensors', '/redfish/v1/Chassis/BMC_0/Sensors', { ChassisId: 'BMC_0' }),
+        cached('getChassisSensorById', '/redfish/v1/Chassis/BMC_0/Sensors/temp1', {
+          ChassisId: 'BMC_0',
+          SensorId: 'temp1',
+        }),
+      ];
+      const { client, invalidatedUrls } = buildFakeClient(queries);
+      applySseEventInvalidation(
+        client,
+        {
+          MessageId: 'ResourceEvent.1.0.ResourceChanged',
+          OriginOfCondition: { '@odata.id': '/redfish/v1/Chassis/BMC_0/Sensors/temp1' },
+        },
+        RULES,
+      );
+      const matched = invalidatedUrls();
+      expect(matched).toEqual(
+        expect.arrayContaining([
+          '/redfish/v1/Chassis',
+          '/redfish/v1/Chassis/BMC_0',
+          '/redfish/v1/Chassis/BMC_0/Sensors',
+          '/redfish/v1/Chassis/BMC_0/Sensors/temp1',
+        ]),
+      );
+      expect(matched).not.toContain('/redfish/v1/Chassis/BMC_1');
+    });
+  });
+
+  describe('ResourceCreated parent-collection invalidation', () => {
+    function resourceCreatedEvent(originPath: string): EventRecord {
+      return {
+        MessageId: 'ResourceEvent.1.0.ResourceCreated',
+        OriginOfCondition: { '@odata.id': originPath },
+      };
+    }
+
+    it('also invalidates the parent collection so list views surface the add', () => {
+      const queries: ReadonlyArray<FakeCachedQuery> = [
+        cached('getServiceRoot', '/redfish/v1'),
+        cached('getSystems', '/redfish/v1/Systems'),
+        cached('getSystemById', '/redfish/v1/Systems/system0', { ComputerSystemId: 'system0' }),
+        cached('getChassis', '/redfish/v1/Chassis'),
+      ];
+      const { client, invalidatedUrls } = buildFakeClient(queries);
+      applySseEventInvalidation(client, resourceCreatedEvent('/redfish/v1/Systems/system0'), RULES);
+
+      const matched = invalidatedUrls();
+      // Origin itself + its ancestors (parent fires twice — once via
+      // ancestor-prefix, once via the lifecycle path — that is by
+      // design and produces the same observable invalidation).
+      expect(matched).toEqual(
+        expect.arrayContaining([
+          '/redfish/v1',
+          '/redfish/v1/Systems',
+          '/redfish/v1/Systems/system0',
+        ]),
+      );
+      expect(matched).not.toContain('/redfish/v1/Chassis');
+    });
+
+    it('treats `ResourceRemoved` the same way (parent invalidated for list refresh)', () => {
+      const queries: ReadonlyArray<FakeCachedQuery> = [
+        cached('getSystems', '/redfish/v1/Systems'),
+        cached('getSystemById', '/redfish/v1/Systems/system0', { ComputerSystemId: 'system0' }),
+      ];
+      const { client, invalidatedUrls } = buildFakeClient(queries);
+      applySseEventInvalidation(
+        client,
+        {
+          MessageId: 'ResourceEvent.1.0.ResourceRemoved',
+          OriginOfCondition: { '@odata.id': '/redfish/v1/Systems/system0' },
+        },
+        RULES,
+      );
+      const matched = invalidatedUrls();
+      expect(matched).toEqual(
+        expect.arrayContaining(['/redfish/v1/Systems', '/redfish/v1/Systems/system0']),
+      );
+    });
+  });
+
+  describe('TaskEvent.* registry rule', () => {
+    it('invalidates the task tree for any `TaskEvent.*` MessageId, regardless of OriginOfCondition', () => {
+      const queries: ReadonlyArray<FakeCachedQuery> = [
+        cached('getTaskService', '/redfish/v1/TaskService'),
+        cached('getTaskServiceTasks', '/redfish/v1/TaskService/Tasks'),
+        cached('getChassis', '/redfish/v1/Chassis'),
+      ];
+      const { client, invalidatedUrls } = buildFakeClient(queries);
+      applySseEventInvalidation(client, { MessageId: 'TaskEvent.1.0.TaskCompletedOK' }, RULES);
+      const matched = invalidatedUrls();
+      expect(matched).toEqual(
+        expect.arrayContaining(['/redfish/v1/TaskService', '/redfish/v1/TaskService/Tasks']),
+      );
+      expect(matched).not.toContain('/redfish/v1/Chassis');
+    });
+  });
+
+  describe('Update.* registry rule', () => {
+    it('invalidates UpdateService URL family for any `Update.*` MessageId', () => {
+      const queries: ReadonlyArray<FakeCachedQuery> = [cached('getChassis', '/redfish/v1/Chassis')];
+      const { calls, client } = buildFakeClient(queries);
+      applySseEventInvalidation(client, { MessageId: 'Update.1.0.UpdateInProgress' }, RULES);
+      // Three predicates fire (one per `invalidate` URL) — they all
+      // produce empty `matched` arrays for the fixture cache because
+      // we don't register UpdateService ops, but the *attempt* is
+      // observable: three non-global calls.
+      const ruleAttempts = calls.filter((c) => !c.isGlobal);
+      expect(ruleAttempts).toHaveLength(3);
+    });
+  });
+
+  describe('flat-string OriginOfCondition (vendor variant)', () => {
+    it('matches the same as the DMTF object shape', () => {
+      const queries: ReadonlyArray<FakeCachedQuery> = [
+        cached('getServiceRoot', '/redfish/v1'),
+        cached('getSystems', '/redfish/v1/Systems'),
+        cached('getSystemById', '/redfish/v1/Systems/system0', { ComputerSystemId: 'system0' }),
+      ];
+      const { client, invalidatedUrls } = buildFakeClient(queries);
+      applySseEventInvalidation(
+        client,
+        {
+          MessageId: 'ResourceEvent.1.0.ResourceChanged',
+          // Flat-string variant some BMCs emit.
+          OriginOfCondition: '/redfish/v1/Systems/system0',
+        },
+        RULES,
+      );
+      expect(invalidatedUrls()).toEqual(
+        expect.arrayContaining([
+          '/redfish/v1',
+          '/redfish/v1/Systems',
+          '/redfish/v1/Systems/system0',
+        ]),
+      );
+    });
+  });
+
+  describe('events with no OriginOfCondition and no matching rule', () => {
+    it('produces zero invalidations (engine bails cleanly)', () => {
+      const { calls, client } = buildFakeClient();
+      applySseEventInvalidation(client, { MessageId: 'OEM.Vendor.1.0.UnrecognizedEvent' }, RULES);
       expect(calls).toHaveLength(0);
     });
   });

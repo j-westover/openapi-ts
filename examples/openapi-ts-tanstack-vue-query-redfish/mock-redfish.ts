@@ -380,7 +380,7 @@ export function mockRedfishPlugin(): Plugin {
           method === 'POST' &&
           url === '/redfish/v1/EventService/Actions/EventService.SubmitTestEvent'
         ) {
-          const body = await parseBody(req).catch(() => ({}));
+          const body = await parseBody(req).catch(() => ({}) as Record<string, unknown>);
           const id = String(nextEventId++);
           const eventRecord: Record<string, unknown> = {
             EventId: (body.EventId as string | undefined) ?? id,

@@ -592,10 +592,12 @@ absorbed by extending the rule table.
 
 ## Testing
 
-**Unit (engine).** `useSSEQueryInvalidation` is exercised against a
+**Unit (engine).** `applySseEventInvalidation` is exercised against a
 hand-built `QueryClient` populated with synthetic queries whose keys
 mimic the generated shape. Each test asserts which queries are
-invalidated for a given `EventRecord`:
+invalidated for a given `EventRecord`. The reference implementation
+lives at `src/composables/sseInvalidation.spec.ts` and currently
+covers:
 
 - _`ResourceChanged` on `/redfish/v1/Chassis/BMC_0/Sensors/temp1`_
   with the cache pre-loaded with `getChassis`,
@@ -603,9 +605,9 @@ invalidated for a given `EventRecord`:
   `getChassisSensorById(BMC_0, temp1)`, and `getChassisById(BMC_1)`
   → all four `BMC_0`-shaped queries are invalidated; the `BMC_1`
   query is untouched.
-- _`ResourceCreated` on `/redfish/v1/Systems/system0`_ with
-  `getSystems`, `getSystemsById(system0)`, and `getChassis` cached
-  → `getSystems` (parent) and `getSystemsById(system0)` are
+- _`ResourceCreated` / `ResourceRemoved` on `/redfish/v1/Systems/system0`_
+  with `getSystems`, `getSystemById(system0)`, and `getChassis`
+  cached → `getSystems` (parent) and `getSystemById(system0)` are
   invalidated; `getChassis` is untouched.
 - _`TaskEvent.1.0.TaskCompletedOK`_ (no `OriginOfCondition`) with
   `getTaskService`, `getTaskServiceTasks`, and `getChassis` cached
@@ -613,22 +615,43 @@ invalidated for a given `EventRecord`:
   untouched.
 - _`EventBufferExceeded`_ with any cache state
   → every query is invalidated (global fallback).
+- _`Base.*.PropertyValueModified` with origin
+  `…/Actions/<X>.Reset`_ → `*.Reset` `originPattern` rule fires;
+  Systems + Chassis trees both invalidate.
+- _OpenBMC `xyz.openbmc_project.State.*` messages_ with empty
+  `MessageId` → `messagePattern` rule fires; same target prefixes.
+- Per-instance isolation, heartbeat short-circuit, malformed-rule
+  safety net, flat-string `OriginOfCondition` vendor variant.
 
-**Unit (parser).** `parseSSEEventData` already has table-driven tests
-in the reference example for envelope vs. flat-record shapes,
-malformed JSON, and the `EventBufferExceeded` sentinel. Add cases for
-the `OriginOfCondition`-string-vs-object variants that real BMCs emit.
+**Unit (parser).** `parseSSEEventData` is covered at
+`src/composables/parseSSEEvent.spec.ts` with table-driven inputs:
+the DMTF envelope shape, a flat single-record payload, the
+`EventBufferExceeded` sentinel, malformed JSON, primitive
+non-object inputs, and both `OriginOfCondition` variants
+(spec-shape `{ '@odata.id': '…' }` and the flat-string vendor
+form some BMCs emit).
 
-**Integration.** A test that pipes a fake SSE stream (using a mock
-`fetch` that emits `data: {...}` chunks) through `useSSE` →
-`useSSEQueryInvalidation` → `QueryClient`, asserting the same matrix
-above end-to-end.
+**Unit (codegen helpers).** The pure helpers in
+`scripts/redfish-spec-patch.ts` (`buildOperationName`,
+`cleanSchemaName`, `unlockSessionLoginFields`,
+`patchDanglingSchemaRefs`, `stampVersionedSchemaDescriptions`) are
+covered at `scripts/redfish-spec-patch.spec.ts`. None of them touch
+the network or the file system, so the suite gates every PR.
 
-**Component.** Tests verify that components using
+**Integration (suggested).** A test that pipes a fake SSE stream
+(using a mock `fetch` that emits `data: {...}` chunks) through
+`useSSE` → `useSSEQueryInvalidation` → `QueryClient` asserts the
+same matrix above end-to-end. Not yet implemented in the reference
+example; downstream consumers are expected to add it once they wire
+the engine into a real component tree.
+
+**Component (suggested).** Tests verify that components using
 `useQuery(getXxxOptions())` re-render with new data after the
-invalidator fires for a matching `OriginOfCondition`.
+invalidator fires for a matching `OriginOfCondition`. Out of scope
+for this design document.
 
-**CI impact.** All of the above run under the existing Vitest config.
-No new infrastructure is required.
+**CI impact.** All currently-implemented tests run under the
+existing Vitest config (`pnpm test:unit`). No new infrastructure is
+required.
 
 [openapi-integration]: ./openapi-integration-webui-vue.md

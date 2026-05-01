@@ -43,13 +43,11 @@ const SSE_PRIMING_RETRY_MS = 5000;
 const SSE_PRIMING_MESSAGE_ID = 'HeartbeatEvent.1.1.RedfishServiceFunctional';
 
 async function sendPrimingTestEvent(): Promise<void> {
-  console.log('[SSE] sending priming test event');
   try {
-    const result = await postEventServiceSubmitTestEvent({
+    await postEventServiceSubmitTestEvent({
       body: { MessageId: SSE_PRIMING_MESSAGE_ID },
       throwOnError: true,
     });
-    console.log('[SSE] priming test event accepted, status=', result.status);
   } catch (error) {
     // BMC may not implement SubmitTestEvent or the HeartbeatEvent
     // registry — non-fatal, this is purely a "wake the stream up"
@@ -101,14 +99,10 @@ const useSSEController = defineStore('sse-controller', () => {
 
   async function consume(): Promise<void> {
     if (isActive()) return;
-    if (!authStore.isAuthenticated) {
-      console.log('[SSE] consume() bail: not authenticated');
-      return;
-    }
+    if (!authStore.isAuthenticated) return;
 
     controller = new AbortController();
     sseStore.setStatus('connecting');
-    console.log('[SSE] consume() begin, status=connecting');
 
     // Fire the priming probes on parallel timers. They run independently
     // of `await client.sse.get(...)` (which can block indefinitely
@@ -119,9 +113,6 @@ const useSSEController = defineStore('sse-controller', () => {
     const primingTimers: ReturnType<typeof setTimeout>[] = [];
     const schedulePrime = (delay: number) => {
       const timer = setTimeout(() => {
-        console.log(
-          `[SSE] priming timer fired (delay=${delay}ms) status=${sseStore.status} aborted=${signal.aborted}`,
-        );
         if (signal.aborted) return;
         if (sseStore.status === 'connected') return;
         void sendPrimingTestEvent();
@@ -130,7 +121,6 @@ const useSSEController = defineStore('sse-controller', () => {
     };
     schedulePrime(SSE_PRIMING_DELAY_MS);
     schedulePrime(SSE_PRIMING_RETRY_MS);
-    console.log('[SSE] priming timers armed (200ms + 5000ms)');
     const clearPrimingTimers = () => primingTimers.forEach(clearTimeout);
 
     try {
@@ -178,12 +168,10 @@ const useSSEController = defineStore('sse-controller', () => {
       // actually arrives. bmcweb only flushes response headers when
       // an event is queued, so "first event arrived" is the only
       // honest signal that the stream is up.
-      console.log('[SSE] client.sse.get returned, awaiting first chunk');
       let firstEventSeen = false;
       for await (const data of stream) {
         if (!firstEventSeen) {
           firstEventSeen = true;
-          console.log('[SSE] first chunk received, status=connected');
           sseStore.setStatus('connected');
           sseStore.resetReconnectAttempts();
           clearPrimingTimers();
@@ -201,11 +189,9 @@ const useSSEController = defineStore('sse-controller', () => {
         }
       }
 
-      console.log('[SSE] for-await exited cleanly, status=disconnected');
       sseStore.setStatus('disconnected');
     } catch (error) {
       if (controller?.signal.aborted) {
-        console.log('[SSE] consume() aborted (controller signal)');
         sseStore.setStatus('disconnected');
         return;
       }
