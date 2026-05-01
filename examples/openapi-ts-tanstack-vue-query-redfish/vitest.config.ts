@@ -9,7 +9,10 @@ export default defineProject({
     },
   },
   test: {
-    environment: 'jsdom',
+    // Pure logic tests (parser, codegen helpers, SSE invalidation
+    // engine) — no DOM needed. Avoids jsdom@29's top-level-await
+    // require() footgun on Node 22.
+    environment: 'node',
     exclude: [...configDefaults.exclude, 'e2e/**'],
   },
 });
