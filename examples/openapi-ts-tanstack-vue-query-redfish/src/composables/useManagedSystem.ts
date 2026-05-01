@@ -18,6 +18,25 @@ import type { ComputerSystem } from '@/client/types.gen';
 
 const SYSTEMS_BASE = '/redfish/v1/Systems/';
 
+/**
+ * Redfish `PowerState` values that warrant short-interval polling.
+ *
+ * On many BMCs (notably bmcweb) the power-on transition is not
+ * announced with a settle-state SSE event — the BMC emits the
+ * `Chassis.Reset` action event, leaves `PowerState` at `PoweringOn`
+ * for several seconds, and then silently flips it to `On` without
+ * notifying the SSE stream. We poll the System resource at 2s
+ * intervals to compensate, stopping as soon as `PowerState` settles.
+ *
+ * `PoweringOff` is intentionally *not* polled — graceful shutdown can
+ * take minutes (OS shutdown sequencing) and the BMC reliably publishes
+ * the eventual `Off` transition. The UI surfaces an in-progress
+ * pulse animation on the icon instead (`PowerStateIcon` →
+ * `'off blink'` status).
+ */
+const TRANSIENT_POWER_STATES: ReadonlySet<string> = new Set(['PoweringOn']);
+const POWER_STATE_POLL_MS = 2000;
+
 function memberIdFromOdataId(odataId: string | undefined): string | null {
   if (!odataId) return null;
   if (!odataId.startsWith(SYSTEMS_BASE)) return null;
@@ -42,6 +61,24 @@ export function useManagedSystem() {
         path: { ComputerSystemId: computerSystemId.value ?? '' },
       }),
       enabled: Boolean(computerSystemId.value),
+      // Poll while the BMC reports a transient power transition so we
+      // do not depend on a follow-up SSE event that some BMCs never
+      // emit. Returning `false` lets TanStack Query treat polling as
+      // off; returning `2000` makes it refetch every 2s. The function
+      // is re-evaluated after every successful fetch, so polling
+      // stops the moment `PowerState` settles to `On` / `Off`.
+      //
+      // Inference inside `computed(() => ({ ...spread, ... }))` loses
+      // the deeply-instantiated query-key generic, so the parameter
+      // type is left implicit and `state.data` re-narrowed at use.
+       
+      refetchInterval: (query: any) => {
+        const data = query?.state?.data as ComputerSystem | undefined;
+        const ps = data?.PowerState;
+        return typeof ps === 'string' && TRANSIENT_POWER_STATES.has(ps)
+          ? POWER_STATE_POLL_MS
+          : false;
+      },
     })),
   );
 

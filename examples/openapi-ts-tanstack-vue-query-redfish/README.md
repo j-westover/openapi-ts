@@ -157,7 +157,9 @@ never disturbs the other:
 > files after such a burst, leaving newly-imported symbols looking
 > `undefined` in the browser. **If imports from `@/client/...` go quiet
 > after a regen, restart the dev server with `pnpm dev:fresh`** — that
-> wipes `node_modules/.vite/` and starts Vite with a clean dep cache.
+> kills any prior Vite instance still bound to this project's
+> `node_modules/vite`, wipes `node_modules/.vite/`, and starts Vite
+> with a clean dep cache.
 
 A CI step can guard against drift:
 

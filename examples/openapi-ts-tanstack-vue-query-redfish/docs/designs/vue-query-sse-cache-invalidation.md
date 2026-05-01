@@ -285,12 +285,25 @@ Every Redfish event carries either `OriginOfCondition['@odata.id']`
 engine normalises both to a single `originPath: string` and skips the
 event if the field is absent.
 
+A trailing `/Actions/<ActionName>` segment is stripped before
+prefix-matching: a `Chassis.Reset` action lives at
+`/redfish/v1/Chassis/X/Actions/Chassis.Reset`, but the resource that
+actually changed state is `/redfish/v1/Chassis/X`. Without this
+normalisation the parent Chassis would never be reached by ancestor
+matching (the action URL is a _child_ of the Chassis, not a parent).
+
 ```
 SSE Event:
   MessageId:           ResourceEvent.1.0.ResourceChanged
   OriginOfCondition:   /redfish/v1/Chassis/BMC_0/Sensors/temp1
 
   → originPath = '/redfish/v1/Chassis/BMC_0/Sensors/temp1'
+
+SSE Event:
+  MessageId:           Base.1.15.PropertyValueModified
+  OriginOfCondition:   /redfish/v1/Chassis/X/Actions/Chassis.Reset
+
+  → originPath = '/redfish/v1/Chassis/X' (after /Actions/ strip)
 ```
 
 #### Step 2 — match against the Vue Query cache
@@ -339,38 +352,71 @@ OriginOfCondition:   /redfish/v1/Systems/system0
 
 #### Step 4 — static rule registry (escape hatch)
 
-Some events do not carry an `OriginOfCondition` (or carry one that is
-not the resource a UI would actually show). The engine consults a small
-declarative rule table keyed on `MessageId` patterns and (optionally)
-`ResourceType` values. Each rule lists query-key URL prefixes to
-invalidate.
+Some events either do not carry an `OriginOfCondition` (e.g. registry
+events whose source the engine has no way to reconstruct), or carry
+one that does not identify the affected resource (e.g. `Chassis.Reset`
+events whose `OriginOfCondition` points at the _action_ endpoint but
+whose state-change effect lives on the System and the Chassis, in
+parallel resource trees). Some BMCs even publish state-change events
+with an _empty_ `MessageId` and a fully-qualified D-Bus signal path
+in `Message` (OpenBMC's
+`xyz.openbmc_project.State.Info.ChassisPowerOnStarted`). The engine
+consults a small declarative rule table for these cases. Each rule
+fires when _all_ of its declared matchers — `messageIdPattern`,
+`messagePattern`, `originPattern`, and an optional `resourceTypes`
+allow-list — match the event.
 
 ```ts
 type SseInvalidationRule = {
-  messageIdPattern: RegExp; // e.g. /^TaskEvent\./
-  resourceTypes?: ReadonlyArray<string>;
   invalidate: ReadonlyArray<string>; // URL prefixes
+  // At least one of these matchers must be set.
+  messageIdPattern?: RegExp; // e.g. /^TaskEvent\./
+  messagePattern?: RegExp; // matched against `event.Message`
+  originPattern?: RegExp; // matched against the *raw* origin
+  resourceTypes?: ReadonlyArray<string>;
 };
 
 const RULES: ReadonlyArray<SseInvalidationRule> = [
+  // Task lifecycle — refresh the task list and the service header.
   {
-    // Task lifecycle — refresh the task list and the service header.
     invalidate: ['/redfish/v1/TaskService'],
     messageIdPattern: /^TaskEvent\./,
   },
+  // Firmware updates — the OriginOfCondition is usually the FW image;
+  // we surface the listing so progress is visible.
   {
-    // Firmware updates — the OriginOfCondition is usually the FW
-    // image; we surface the listing so progress is visible.
     invalidate: ['/redfish/v1/UpdateService'],
     messageIdPattern: /^Update\./,
+  },
+  // *.Reset actions (Chassis.Reset, ComputerSystem.Reset, vendor
+  // extensions) — the BMC publishes a `Base.*.PropertyValueModified`
+  // event with the action endpoint as the origin, but the actual
+  // state change is visible on both the parent Chassis and the
+  // related System, neither of which is reachable from the action
+  // URL by prefix-matching alone.
+  {
+    invalidate: ['/redfish/v1/Systems', '/redfish/v1/Chassis'],
+    originPattern: /\/Actions\/[\w-]+\.Reset(?:\?|$)/,
+  },
+  // OpenBMC state-change signals — published with an empty MessageId
+  // and the full D-Bus signal path in `Message`
+  // (`xyz.openbmc_project.State.Info.ChassisPowerOnStarted`,
+  // `…HostTransition…`, `…BMCStateChanged`, etc.). No
+  // `OriginOfCondition` is set, so prefix-matching cannot reach
+  // anything.
+  {
+    invalidate: ['/redfish/v1/Systems', '/redfish/v1/Chassis'],
+    messagePattern: /^xyz\.openbmc_project\.State\./,
   },
 ];
 ```
 
-A real `invalidate` array can list as many URL prefixes as needed
-(the shipped table also includes `/redfish/v1/TaskService/Tasks`,
-`/redfish/v1/UpdateService/FirmwareInventory`, etc.). One prefix per
-rule is enough to communicate the shape.
+`originPattern` matches against the _raw_ `OriginOfCondition` (with
+the `/Actions/...` suffix intact), so the rule can target action
+endpoints specifically. The prefix-match in Step 2 still uses the
+_normalised_ origin (with `/Actions/...` stripped), so an action
+event also invalidates the resource the action runs on without
+having to declare a rule for it.
 
 Vendor extensions land in this table without touching the engine.
 

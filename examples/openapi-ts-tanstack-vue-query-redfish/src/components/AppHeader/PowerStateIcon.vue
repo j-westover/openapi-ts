@@ -82,12 +82,18 @@ function isResetTypeSupported(resetType: string): boolean {
 const powerStateIconStatus = computed<PowerStatus>(() => {
   switch (powerState.value) {
     case 'On':
-    case 'PoweringOff':
       return 'on';
     case 'Off':
       return 'off';
     case 'PoweringOn':
       return 'on blink';
+    // Graceful shutdown can take minutes — render the OFF glyph in
+    // the calm green palette with a slow opacity pulse so the user
+    // gets continuous "in progress" feedback without the alarm of a
+    // red blink. Polling is intentionally disabled in this state
+    // (see `useManagedSystem.TRANSIENT_POWER_STATES`).
+    case 'PoweringOff':
+      return 'off blink';
     case 'Paused':
       return 'on blink 1Hz';
     default:

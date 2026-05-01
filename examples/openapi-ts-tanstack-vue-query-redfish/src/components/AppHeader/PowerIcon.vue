@@ -9,7 +9,7 @@
  */
 import { computed } from 'vue';
 
-export type PowerStatus = 'on' | 'off' | 'on blink' | 'on blink 1Hz' | 'secondary';
+export type PowerStatus = 'on' | 'off' | 'on blink' | 'on blink 1Hz' | 'off blink' | 'secondary';
 
 interface Props {
   ariaHidden?: boolean;
@@ -22,6 +22,12 @@ const props = withDefaults(defineProps<Props>(), {
 
 const colorClass = computed(() => {
   if (props.status === 'on' || props.status.startsWith('on ')) return 'text-green-400';
+  // `off blink` keeps the green palette intentionally — graceful
+  // shutdown is a normal operation; switching to red would read as
+  // "alarm" when the system is in fact still healthy and the user
+  // asked for the transition. The pulse animation + the OFF (ring)
+  // glyph communicate direction without colour panic.
+  if (props.status === 'off blink') return 'text-green-400';
   if (props.status === 'off') return 'text-red-400';
   return 'text-gray-400';
 });
@@ -29,6 +35,7 @@ const colorClass = computed(() => {
 const animationClass = computed(() => {
   if (props.status === 'on blink') return 'power-blink';
   if (props.status === 'on blink 1Hz') return 'power-blink-1hz';
+  if (props.status === 'off blink') return 'power-pulse-slow';
   return '';
 });
 
@@ -42,6 +49,8 @@ const ariaLabel = computed(() => {
       return 'Power turning on';
     case 'on blink 1Hz':
       return 'Power paused';
+    case 'off blink':
+      return 'Power turning off';
     case 'secondary':
     default:
       return 'Power status unknown';
@@ -108,6 +117,15 @@ const ariaLabel = computed(() => {
   animation: power-blink 0.25s infinite;
 }
 
+/* Slow opacity pulse (1.6s, ease-in-out) for the `off blink` status —
+   used during graceful shutdown which can take minutes. The fill is
+   never fully cleared (stays visible at ~30% opacity) so the icon
+   reads as "in progress, take your time" rather than "alarm". */
+.power-icon svg.power-pulse-slow g rect,
+.power-icon svg.power-pulse-slow g path {
+  animation: power-pulse-slow 1.6s ease-in-out infinite;
+}
+
 @keyframes power-blink {
   0%,
   100% {
@@ -115,6 +133,18 @@ const ariaLabel = computed(() => {
   }
   60% {
     fill: currentColor;
+  }
+}
+
+@keyframes power-pulse-slow {
+  0%,
+  100% {
+    fill: currentColor;
+    opacity: 1;
+  }
+  50% {
+    fill: currentColor;
+    opacity: 0.3;
   }
 }
 </style>

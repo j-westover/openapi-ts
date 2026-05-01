@@ -28,6 +28,7 @@ import {
   isResourceLifecycleEvent,
   parentPath,
   type SseInvalidationRule,
+  stripActionsSuffix,
 } from '@/composables/sseInvalidationRules';
 import { useSSEStore } from '@/stores/sse';
 
@@ -78,7 +79,7 @@ export function useSSEQueryInvalidation(options: UseSSEQueryInvalidationOptions 
         void queryClient.invalidateQueries();
       } else {
         for (const event of fresh) {
-          handleEvent(queryClient, event, rules);
+          applySseEventInvalidation(queryClient, event, rules);
         }
       }
 
@@ -88,7 +89,12 @@ export function useSSEQueryInvalidation(options: UseSSEQueryInvalidationOptions 
   );
 }
 
-function handleEvent(
+/**
+ * Pure event-handling step exported for unit testing. Production
+ * callers should use the `useSSEQueryInvalidation` composable above
+ * which mounts the watcher and supplies the live store cursor.
+ */
+export function applySseEventInvalidation(
   queryClient: QueryClient,
   event: EventRecord,
   rules: readonly SseInvalidationRule[],
@@ -106,7 +112,16 @@ function handleEvent(
 
   // Fine-grained match against the URL embedded in every cached query
   // key by `@hey-api/openapi-ts`'s `@tanstack/vue-query` plugin.
-  const origin = extractOriginOfCondition(event);
+  //
+  // We normalise `/Actions/...` off the origin before prefix-matching
+  // so an action endpoint's parent resource (the one the action runs
+  // on) is correctly seen as an ancestor. Without this, an event
+  // sourced at `/redfish/v1/Chassis/X/Actions/Chassis.Reset` would
+  // never invalidate the cached `Chassis/X` query, since the action
+  // path is a child of it, not a parent.
+  const rawOrigin = extractOriginOfCondition(event);
+  const origin = rawOrigin ? stripActionsSuffix(rawOrigin) : null;
+
   if (origin) {
     void queryClient.invalidateQueries({
       predicate: (query) => isQueryAncestorOf(query.queryKey, origin),
@@ -122,13 +137,22 @@ function handleEvent(
     }
   }
 
-  // Static rule registry — for events without an OriginOfCondition or
-  // whose origin URI does not map to a UI resource.
+  // Static rule registry — fires for events whose `OriginOfCondition`
+  // does not (or cannot) lead the cache to the affected resources by
+  // prefix alone. A rule matches when *all* of its declared matchers
+  // (`messageIdPattern` / `messagePattern` / `originPattern` /
+  // `resourceTypes`) match; a rule with no matchers at all is ignored
+  // as a safety net.
   const messageId = event.MessageId ?? '';
+  const message = typeof event.Message === 'string' ? event.Message : '';
   const resourceType = typeof event.ResourceType === 'string' ? event.ResourceType : null;
+  const originForRules = rawOrigin ?? '';
 
   for (const rule of rules) {
-    if (!rule.messageIdPattern.test(messageId)) continue;
+    if (!rule.messageIdPattern && !rule.messagePattern && !rule.originPattern) continue;
+    if (rule.messageIdPattern && !rule.messageIdPattern.test(messageId)) continue;
+    if (rule.messagePattern && !rule.messagePattern.test(message)) continue;
+    if (rule.originPattern && !rule.originPattern.test(originForRules)) continue;
     if (
       rule.resourceTypes &&
       (resourceType === null || !rule.resourceTypes.includes(resourceType))
