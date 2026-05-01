@@ -18,12 +18,10 @@ const queryClient = useQueryClient();
 const authStore = useAuthStore();
 const { sessionUri } = storeToRefs(authStore);
 
-const sse = useSSE({
-  onBufferExceeded: () => {
-    // The BMC dropped events on its end; refetch so the UI catches up.
-    void queryClient.invalidateQueries();
-  },
-});
+// SSE → Vue Query cache invalidation is mounted globally in App.vue
+// (`useSSEQueryInvalidation`); the call here only opens / displays the
+// stream.
+const sse = useSSE();
 
 const serviceRoot = useQuery(getServiceRootOptions());
 const systemsQuery = useQuery(getSystemsOptions());

@@ -19,7 +19,10 @@ export interface EventRecord {
   EventType?: string;
   Message?: string;
   MessageId?: string;
-  OriginOfCondition?: { '@odata.id'?: string };
+  // Some BMCs publish OriginOfCondition as a flat URI string instead of
+  // the DMTF-spec'd `{ '@odata.id': '...' }` object. Accept either.
+  OriginOfCondition?: string | { '@odata.id'?: string };
+  ResourceType?: string;
   Severity?: string;
   Timestamp?: string;
 }

@@ -45,6 +45,15 @@ preserves — are:
   existing `useQuery`/`useMutation` call sites.
 - **No user-visible behaviour change** in the first PR.
 
+This design covers the codegen and wiring of the typed SDK. The
+companion runtime design — how SSE events from
+`/redfish/v1/EventService/SSE` are mapped to Vue Query cache
+invalidations so the cache stays correct without polling — is in
+[`vue-query-sse-cache-invalidation.md`][sse-cache] and depends only on
+the query-key shape that this design's `@tanstack/vue-query` plugin
+emits. The two designs are intended to land together but are scoped as
+independent reviews.
+
 ## Background and References
 
 - **OpenBMC `webui-vue`** — the Vue 3 + Vite reference UI for OpenBMC, used
@@ -80,6 +89,12 @@ preserves — are:
   to work around Redfish-specific rough edges in Orval. This design
   treats that change as the empirical baseline for the comparison in
   _Alternatives Considered (c)_ below.
+- **Companion runtime design** —
+  [`vue-query-sse-cache-invalidation.md`][sse-cache] specifies how the
+  query-key shape this design produces is consumed by an SSE-driven
+  invalidation engine, so that cached data refreshes automatically
+  when the BMC publishes an event. That design is the runtime pillar
+  of the same feature; this one is the codegen pillar.
 - **Glossary**
   - **SDK**: the per-operation TypeScript functions and Vue Query helpers
     emitted by `openapi-ts` (`getServiceRoot`, `getSystemsOptions`, …).
@@ -269,6 +284,15 @@ const systems = useQuery(getSystemsOptions());
 For mutations, error tracking, request cancellation, optimistic updates,
 and retries, the existing patterns from `webui-vue` (Pinia stores, BVToast
 notifications) layer over Vue Query without modification.
+
+The `@hey-api/openapi-ts` `@tanstack/vue-query` plugin emits query keys
+that carry the request URL inside `query.queryKey[0]`. That property is
+the contract between this codegen and the SSE-driven cache invalidation
+engine described in [`vue-query-sse-cache-invalidation.md`][sse-cache]:
+the engine reads the URL out of every cached query, resolves any
+templated path parameters, and prefix-matches against an SSE event's
+`OriginOfCondition` URI. No customisation of the generated keys is
+required; PR-1 just exposes them via the standard `*Options()` helpers.
 
 The `EventService/SSE` stream is the one place where the typed SDK
 provides material new behaviour: the generated `client.sse.get(...)` uses
@@ -534,5 +558,6 @@ existing pipeline.
 [hey-api]: https://heyapi.dev/
 [hey-api-axios]: https://heyapi.dev/openapi-ts/clients/axios
 [gerrit-orval]: https://gerrit.openbmc.org/c/openbmc/webui-vue/+/86518
+[sse-cache]: ./vue-query-sse-cache-invalidation.md
 [TanStack Query]: https://tanstack.com/query/latest
 [TanStack Vue Query]: https://tanstack.com/query/latest/docs/vue/overview

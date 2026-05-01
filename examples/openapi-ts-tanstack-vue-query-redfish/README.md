@@ -10,6 +10,9 @@ The example exercises:
 - **Session-based auth** (Redfish `SessionService`) backed by Pinia.
 - **fetch-based SSE** streaming via `client.sse.get()` — no `EventSource`,
   so we can attach the `X-Auth-Token` header directly.
+- **SSE-driven cache invalidation** — each event's `OriginOfCondition`
+  is mapped back to the affected `useQuery` hooks, which refetch
+  automatically; no polling and no per-feature plumbing.
 - **Vite mock plugin** — the app boots end-to-end with no real BMC.
 
 ## Getting started
@@ -34,10 +37,19 @@ VITE_BMC_URL=https://your-bmc.example.com pnpm dev
 
 ## Environment variables
 
-| Variable              | Effect                                                                                                                     |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `VITE_BMC_URL`        | If set, requests to `/redfish` are proxied to this base URL. If unset, the in-process mock from `mock-redfish.ts` answers. |
-| `REDFISH_OPENAPI_URL` | OpenAPI spec URL used when running `pnpm openapi-ts`. Defaults to the latest published DMTF spec.                          |
+- **`VITE_BMC_URL`** _(runtime — `pnpm dev` / `pnpm preview`)_
+  If set, requests to `/redfish` are proxied to this base URL. If
+  unset, the in-process mock plugin from `mock-redfish.ts` answers
+  every request so the example boots end-to-end with no real BMC.
+- **`REDFISH_SCOPE`** _(codegen — `pnpm openapi-ts_`)*
+Picks which client to generate. Unset (or `full`) writes the entire
+DMTF surface to gitignored `src/client.full/`for IDE / agent type
+discovery;`scoped`writes only the operations listed in`SCOPED_OPERATIONS`to the committed`src/client/`. The
+`pnpm openapi-ts:scoped` script sets this for you.
+- **`REDFISH_OPENAPI_URL`** _(codegen — `pnpm openapi-ts_`)*
+OpenAPI spec URL (or local path) used when running codegen.
+Defaults to the latest published DMTF spec; point it at
+`./specs/redfish.yaml` to make codegen offline-reproducible.
 
 ## Project layout
 
@@ -56,11 +68,13 @@ VITE_BMC_URL=https://your-bmc.example.com pnpm dev
     │   ├── auth.ts               # session token (sessionStorage)
     │   └── sse.ts                # event log + connection state
     ├── composables/
-    │   ├── parseSSEEvent.ts      # Redfish event envelope parser
-    │   └── useSSE.ts             # fetch-based SSE controller
+    │   ├── parseSSEEvent.ts             # Redfish event envelope parser
+    │   ├── useSSE.ts                    # fetch-based SSE controller
+    │   ├── sseInvalidationRules.ts      # _id → URL registry + rule table
+    │   └── useSSEQueryInvalidation.ts   # SSE → Vue Query cache engine
     ├── views/
-    │   ├── LoginView.vue         # POST SessionService.Sessions
-    │   └── RedfishExample.vue    # main dashboard
+    │   ├── LoginView.vue                # POST SessionService.Sessions
+    │   └── RedfishExample.vue           # main dashboard
     └── main.ts
 ```
 
@@ -164,6 +178,33 @@ git add specs/redfish.yaml
 
 Then run `REDFISH_OPENAPI_URL=./specs/redfish.yaml pnpm openapi-ts:scoped`.
 The build itself never reads the spec; only generation does.
+
+## SSE-driven Vue Query cache invalidation
+
+The example implements the runtime contract documented in
+[`../../docs/designs/vue-query-sse-cache-invalidation.md`](../../docs/designs/vue-query-sse-cache-invalidation.md):
+
+1. Every event landing on `/redfish/v1/EventService/SSE` flows through
+   `parseSSEEvent` → SSE Pinia store → `useSSEQueryInvalidation`
+   (mounted once from `App.vue`).
+2. The engine extracts `OriginOfCondition` and resolves each cached
+   query's `_id` to a concrete URL via the
+   `REDFISH_OPERATION_URLS` registry in `sseInvalidationRules.ts`.
+3. Any cached query whose URL is a parent of (or equals) the event
+   URI is invalidated; `ResourceCreated` / `ResourceRemoved` also
+   refresh the parent collection.
+4. A static rule table catches `TaskEvent` / `Update`-registry events
+   that lack a usable `OriginOfCondition`.
+5. `EventBufferExceeded` is the only event that triggers a cache-wide
+   `invalidateQueries({})` — the rest of the engine exists to make
+   that fallback as rare as possible.
+
+When you add a new operation to `SCOPED_OPERATIONS` in
+`openapi-ts.config.ts`, also add a row to `REDFISH_OPERATION_URLS`
+(operation id → URL template) so the engine can target it. Operations
+without a registry entry are silently ignored, which is the right
+default for mutations and lifecycle endpoints that no view actually
+caches.
 
 ## Auth flow
 

@@ -17,7 +17,7 @@
  */
 
 import { defineStore } from 'pinia';
-import { computed, type Ref,watch } from 'vue';
+import { computed, type Ref, watch } from 'vue';
 
 import { client } from '@/client/client.gen';
 import type { EventRecord } from '@/composables/parseSSEEvent';
