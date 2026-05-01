@@ -1,0 +1,19 @@
+{
+  "extends": "@tsconfig/node24/tsconfig.json",
+  "include": ["vite.config.*", "vitest.config.*", "mock-redfish.ts"],
+  // `openapi-ts.config.ts` and `scripts/**` are only consumed by the
+  // `openapi-ts` CLI (via tsx) at codegen time; they are NOT part of the
+  // production build. Keeping them out of vue-tsc means the build is not
+  // affected by transient type errors in `@hey-api/openapi-ts` published
+  // declarations and stays fully self-contained.
+  "exclude": ["openapi-ts.config.*", "scripts/**"],
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"]
+  }
+}

@@ -5,5 +5,14 @@ packages:
   - packages/**/*
   - '!examples/*/.output'
 
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - esbuild
+  - lmdb
+  - msgpackr-extract
+  - sharp
+  - unrs-resolver
+  - vue-demi
+
 patchedDependencies:
   vitepress: patches/vitepress.patch
