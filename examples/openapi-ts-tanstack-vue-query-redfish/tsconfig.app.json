@@ -9,6 +9,14 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+
+    // Force every type-only import to be written `import type { ... }`.
+    // Belt-and-suspenders against a future refactor accidentally
+    // turning a type import into a value import — that would defeat
+    // the per-export tree-shaking on `src/client/types.gen.ts`'s
+    // `as const` enum-style objects (the only runtime values in that
+    // file). See the bundle-footprint discussion in PR notes.
+    "verbatimModuleSyntax": true
   }
 }

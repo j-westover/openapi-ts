@@ -70,11 +70,10 @@ export function useManagedSystem() {
       //
       // Inference inside `computed(() => ({ ...spread, ... }))` loses
       // the deeply-instantiated query-key generic, so the parameter
-      // type is left implicit and `state.data` re-narrowed at use.
-       
-      refetchInterval: (query: any) => {
-        const data = query?.state?.data as ComputerSystem | undefined;
-        const ps = data?.PowerState;
+      // is described structurally — TanStack's `Query` shape is far
+      // wider, but only `state.data` matters here.
+      refetchInterval: (query: { state: { data?: ComputerSystem } }) => {
+        const ps = query.state.data?.PowerState;
         return typeof ps === 'string' && TRANSIENT_POWER_STATES.has(ps)
           ? POWER_STATE_POLL_MS
           : false;

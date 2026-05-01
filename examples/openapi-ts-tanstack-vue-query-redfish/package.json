@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "scripts": {
     "build-only": "vite build",
     "build": "vue-tsc --build --force && vite build",
