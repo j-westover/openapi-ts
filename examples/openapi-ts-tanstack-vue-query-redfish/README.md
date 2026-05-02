@@ -15,6 +15,9 @@ The example exercises:
 - **SSE-driven cache invalidation** — each event's `OriginOfCondition`
   is mapped back to the affected `useQuery` hooks, which refetch
   automatically; no polling and no per-feature plumbing.
+- **HTTP-layer ETag round-trip** — `axios-cache-interceptor` replays
+  response `ETag`s as `If-None-Match`, so Vue Query refetches that
+  the BMC has nothing new for short-circuit to a header-only `304`.
 - **Vite mock plugin** — the app boots end-to-end with no real BMC.
 
 ## Screenshots

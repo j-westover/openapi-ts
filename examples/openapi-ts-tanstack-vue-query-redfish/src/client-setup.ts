@@ -1,15 +1,19 @@
 /**
  * Configures the generated `@hey-api/client-axios` client used by the
- * SDK, and wires up axios interceptors that:
+ * SDK, and wires up the request/response pipeline that:
  *
- *   - inject the Redfish session token (`X-Auth-Token`) on every
+ *   - injects the Redfish session token (`X-Auth-Token`) on every
  *     request,
- *   - force a logout (clear session + bounce to /login) on 401
+ *   - replays response `ETag`s as `If-None-Match` so the BMC can
+ *     short-circuit unchanged GETs with `304 Not Modified` instead
+ *     of re-sending the full payload (via
+ *     [`axios-cache-interceptor`](https://axios-cache-interceptor.js.org/)),
+ *   - forces a logout (clear session + bounce to /login) on 401
  *     responses, and
- *   - keep the Vue Query cache warm by mirroring every successful
+ *   - keeps the Vue Query cache warm by mirroring every successful
  *     `GET /redfish/*` response into the cache.
  *
- * The third interceptor is the "dual cache population" half of the
+ * The mirror interceptor is the "dual cache population" half of the
  * SSE → Vue Query cache invalidation contract documented in
  * `../docs/designs/vue-query-sse-cache-invalidation.md` (relative to
  * this example's project root). It is a no-op unless a Vue Query hook
@@ -19,6 +23,7 @@
 
 import type { QueryClient } from '@tanstack/vue-query';
 import type { AxiosResponse } from 'axios';
+import { buildMemoryStorage, buildWebStorage, setupCache } from 'axios-cache-interceptor';
 import type { Router } from 'vue-router';
 
 import { client } from './client/client.gen';
@@ -29,6 +34,16 @@ export interface ConfigureRedfishClientOptions {
   queryClient: QueryClient;
   router: Router;
 }
+
+// `localStorage` lets the cache survive a page reload — re-opening
+// the dashboard after F5 sends `If-None-Match` immediately, so the
+// initial waterfall comes back as 304s if nothing changed in the
+// meantime. Falls back to in-memory storage for SSR / Node test
+// contexts where `localStorage` is not defined.
+const isBrowser = typeof window !== 'undefined' && typeof localStorage !== 'undefined';
+const cacheStorage = isBrowser
+  ? buildWebStorage(localStorage, 'redfish-axios-cache:')
+  : buildMemoryStorage();
 
 export function configureRedfishClient({
   queryClient,
@@ -42,6 +57,30 @@ export function configureRedfishClient({
     // `VITE_BMC_URL` directly — assuming the BMC permits CORS or the
     // example is served from the BMC's own origin.
     baseURL: import.meta.env.DEV ? '' : import.meta.env.VITE_BMC_URL || '',
+  });
+
+  // Wrap the SDK's axios instance with cache + ETag support. This
+  // stores every successful GET response keyed by URL and replays
+  // the response's `ETag` as `If-None-Match` on the next request to
+  // the same URL. Combined with Vue Query invalidation, the cost of
+  // a "the data probably did not actually change" refetch (e.g. a
+  // `Chassis.Reset` invalidating the Chassis collection while its
+  // membership stays put) drops to a single 304 round-trip.
+  //
+  // `ttl: 0` keeps every entry stale-by-default — the cache never
+  // serves a stored body without first asking the BMC. We rely on
+  // ETags exclusively; `interpretHeader: false` and
+  // `modifiedSince: false` disable the time-based fallbacks that
+  // would otherwise kick in. `staleIfError: false` keeps an
+  // unreachable BMC from silently serving stale data.
+  setupCache(client.instance, {
+    etag: true,
+    interpretHeader: false,
+    methods: ['get'],
+    modifiedSince: false,
+    staleIfError: false,
+    storage: cacheStorage,
+    ttl: 0,
   });
 
   client.instance.interceptors.request.use((config) => {

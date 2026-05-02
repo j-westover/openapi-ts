@@ -266,10 +266,45 @@ example because the SDK helper has not been added to
 `SCOPED_OPERATIONS` yet), the interceptor keeps that response in the
 same cache that the SSE engine already manages.
 
-An HTTP-layer cache (`axios-cache-interceptor` with ETag support) sits
-_below_ the Vue Query cache and gives the `If-Match` round-trip behaviour
-that `webui-vue` already depends on. This is orthogonal to query-key
-invalidation; the two caches do not see each other.
+### HTTP-layer cache (ETag round-trip)
+
+A second cache sits _below_ the Vue Query cache, on the axios
+instance itself. The SDK's `client.instance` is wrapped with
+[`axios-cache-interceptor`][axios-cache] in `client-setup.ts`,
+configured for ETag-only freshness:
+
+```ts
+setupCache(client.instance, {
+  etag: true, // store ETag, replay as If-None-Match
+  interpretHeader: false, // ignore Cache-Control / Expires
+  methods: ['get'],
+  modifiedSince: false, // no Last-Modified fallback
+  staleIfError: false, // do not serve stale on errors
+  storage: cacheStorage, // localStorage in browser, memory in SSR/test
+  ttl: 0, // every entry stale-by-default
+});
+```
+
+Every successful Redfish GET stores the response body keyed by URL
+along with the BMC's `ETag` header. The next request for the same URL
+fires with `If-None-Match: <stored-etag>`. If the BMC's resource has
+not changed, the BMC returns `304 Not Modified` (header-only, no
+body) and the cache layer resolves the request with the previously
+stored body. If the resource has changed, the BMC returns `200 OK`
+with a new ETag and the cache updates.
+
+This is the half of the system the user observation in
+"`/redfish/v1/Chassis` returns 42 / 13 / 36 items across power
+transitions" relies on: when `Chassis.Reset` invalidates the Chassis
+collection (Step 2), the next refetch goes out with `If-None-Match`,
+and the BMC short-circuits to 304 if the chassis enumeration did
+_not_ in fact change for this particular reset. The two caches do
+not see each other directly — Vue Query owns the keying and
+invalidation lifecycle, axios-cache-interceptor owns the
+HTTP-conditional-request lifecycle — but they compose: every Vue
+Query refetch is funneled through the ETag round-trip.
+
+[axios-cache]: https://axios-cache-interceptor.js.org/
 
 ### SSE invalidation engine
 
