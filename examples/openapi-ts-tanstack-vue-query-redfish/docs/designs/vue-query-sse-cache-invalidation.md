@@ -388,10 +388,15 @@ allow-list — match the event.
 
 ```ts
 type SseInvalidationRule = {
-  // Each entry may reference capture groups from the matching
-  // `originPattern` via `{1}`, `{2}`, … placeholders so the rule
-  // can target a specific instance instead of an entire collection.
+  // Subtree-match prefixes: each entry plus every cached descendant.
+  // Capture-group placeholders (`{1}`, `{2}`, …) substitute from the
+  // matching `originPattern`, so the rule can target a specific
+  // instance instead of an entire collection.
   invalidate: ReadonlyArray<string>;
+  // Exact-URL matches: only the named query, not its descendants.
+  // Use this for collection refreshes where membership may have
+  // changed but cached member-by-id queries are still valid.
+  invalidateExact?: ReadonlyArray<string>;
   // At least one of these matchers must be set.
   messageIdPattern?: RegExp; // e.g. /^TaskEvent\./
   messagePattern?: RegExp; // matched against `event.Message`
@@ -418,15 +423,27 @@ const RULES: ReadonlyArray<SseInvalidationRule> = [
   // `Status.State` live), in a parallel resource tree. The captured
   // `{1}` placeholder targets both surgically — by OpenBMC convention
   // the System ID matches the Chassis ID.
+  //
+  // `invalidateExact` refreshes the collection-level documents
+  // because power transitions can change collection membership: on
+  // at least one observed BMC, `/redfish/v1/Chassis` returns 42
+  // items when On, ~13 during PoweringOff, and ~36 when Off — boards
+  // / modules / GPUs become enumerable or non-enumerable as physical
+  // power propagates through the chassis. Exact-match keeps it
+  // surgical: only the collection refetches, not every cached
+  // member-by-id.
   {
     invalidate: ['/redfish/v1/Chassis/{1}', '/redfish/v1/Systems/{1}'],
+    invalidateExact: ['/redfish/v1/Chassis', '/redfish/v1/Systems'],
     originPattern: /\/Chassis\/([^/?]+)\/Actions\/[\w-]+\.Reset(?:\?|$)/,
   },
   // `ComputerSystem.Reset` action — System ID is in the path. We
   // also invalidate the matching Chassis-by-id by the same
-  // OpenBMC-convention reasoning as above.
+  // OpenBMC-convention reasoning as above, and the collection-level
+  // refresh for the same chassis-enumeration reason.
   {
     invalidate: ['/redfish/v1/Systems/{1}', '/redfish/v1/Chassis/{1}'],
+    invalidateExact: ['/redfish/v1/Systems', '/redfish/v1/Chassis'],
     originPattern: /\/Systems\/([^/?]+)\/Actions\/[\w-]+\.Reset(?:\?|$)/,
   },
   // OpenBMC state-change signals — published with an empty MessageId

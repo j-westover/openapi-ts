@@ -34,8 +34,8 @@ import type { EventRecord } from './parseSSEEvent';
 
 export interface SseInvalidationRule {
   /**
-   * URL prefixes whose cached queries should be invalidated when this
-   * rule matches. Matched against each cached query's resolved URL via
+   * Subtree URL prefixes to invalidate when this rule matches.
+   * Matched against each cached query's resolved URL via
    * `isQueryUnder` (the prefix itself + every cached descendant).
    *
    * Each entry may reference capture groups from the matching
@@ -44,10 +44,26 @@ export interface SseInvalidationRule {
    * with a literal `{N}` that would never match anything anyway).
    * This is what lets a single `Chassis.Reset` rule target the
    * specific Chassis-by-id and the matching System-by-id without
-   * over-fetching the whole `/redfish/v1/Chassis` and
-   * `/redfish/v1/Systems` collections.
+   * over-fetching every other `/redfish/v1/Chassis/<X>` query in
+   * the cache.
    */
   invalidate: ReadonlyArray<string>;
+  /**
+   * Exact URLs to invalidate when this rule matches — same syntax as
+   * `invalidate` (capture-group placeholders supported), but matched
+   * via `isQueryUrlExactly` rather than subtree-match.
+   *
+   * Use this for collection refreshes where the collection itself
+   * must refetch (membership may have changed) but cached
+   * member-by-id queries should be left alone. For example a power
+   * transition can change which chassis subsystems are enumerable
+   * (boards / modules / GPUs become visible or non-visible
+   * depending on what is physically powered), so the
+   * `/redfish/v1/Chassis` collection should refetch — but the
+   * unrelated `/redfish/v1/Chassis/<sibling>` by-id queries should
+   * stay cached.
+   */
+  invalidateExact?: ReadonlyArray<string>;
   /**
    * Regex matched against `event.MessageId`. At least one of
    * `messageIdPattern` / `messagePattern` / `originPattern` must be set
@@ -103,15 +119,28 @@ export const DEFAULT_INVALIDATION_RULES: readonly SseInvalidationRule[] = [
   // via the captured `{1}` placeholder. Vendors that use a
   // different ID mapping should add a follow-up rule with the
   // correct correspondence.
+  //
+  // Power transitions also change collection membership: on at
+  // least one observed BMC, `/redfish/v1/Chassis` returns 42 items
+  // when On, ~13 during PoweringOff, and ~36 when Off — boards /
+  // modules / GPUs become enumerable or non-enumerable as physical
+  // power propagates through the chassis. The collection-level
+  // refresh is therefore intentional. `invalidateExact` keeps it
+  // surgical: only the collection refetches, not every cached
+  // member-by-id.
   {
     invalidate: ['/redfish/v1/Chassis/{1}', '/redfish/v1/Systems/{1}'],
+    invalidateExact: ['/redfish/v1/Chassis', '/redfish/v1/Systems'],
     originPattern: /\/Chassis\/([^/?]+)\/Actions\/[\w-]+\.Reset(?:\?|$)/,
   },
   // `ComputerSystem.Reset` action — the System ID is in the path.
   // We also invalidate the matching Chassis-by-id by the same
-  // OpenBMC-convention reasoning as the Chassis.Reset rule above.
+  // OpenBMC-convention reasoning as the Chassis.Reset rule above,
+  // and the collection-level refresh for the same chassis-
+  // enumeration reason.
   {
     invalidate: ['/redfish/v1/Systems/{1}', '/redfish/v1/Chassis/{1}'],
+    invalidateExact: ['/redfish/v1/Systems', '/redfish/v1/Chassis'],
     originPattern: /\/Systems\/([^/?]+)\/Actions\/[\w-]+\.Reset(?:\?|$)/,
   },
   // OpenBMC state-change signals. Published as Redfish events with an

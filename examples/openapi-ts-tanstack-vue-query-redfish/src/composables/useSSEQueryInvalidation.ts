@@ -184,5 +184,18 @@ export function applySseEventInvalidation(
         predicate: (query) => isQueryUnder(query.queryKey, resolved),
       });
     }
+    // Exact-URL invalidations refresh ONLY the named query, not its
+    // descendants. The typical use is a collection refresh whose
+    // membership may have changed without the cached member-by-id
+    // queries being stale (e.g. `/redfish/v1/Chassis` shrinking
+    // during PoweringOff while `/redfish/v1/Chassis/BMC_0` still
+    // holds correct data).
+    for (const urlPrefix of rule.invalidateExact ?? []) {
+      const resolved = resolveCaptureGroups(urlPrefix, originMatch);
+      if (!resolved) continue;
+      void queryClient.invalidateQueries({
+        predicate: (query) => isQueryUrlExactly(query.queryKey, resolved),
+      });
+    }
   }
 }

@@ -104,26 +104,29 @@ describe('applySseEventInvalidation', () => {
     }
 
     it.each(['Off', 'On'] as const)(
-      'targets the matching System-by-id only (no collection over-fetch) when ResetType=%s',
+      'targets the matching System-by-id when ResetType=%s',
       (resetType) => {
         const { client, invalidatedUrls } = buildFakeClient();
         applySseEventInvalidation(client, chassisResetEvent(resetType), RULES);
         // The capture-group rule resolves `{1}` to `System_0` from
         // the action's `/Chassis/<ID>/Actions/Chassis.Reset` segment.
-        // Only the System-by-id query in the fixture matches; the
-        // collections do not, the ServiceRoot does not, the
-        // (non-cached) Chassis-by-id does not.
         expect(invalidatedUrls()).toContain('/redfish/v1/Systems/System_0');
       },
     );
 
-    it('does NOT over-fetch ServiceRoot or the Systems / Chassis collections', () => {
+    it('refreshes the Systems and Chassis collections (membership shifts on power events)', () => {
+      // Real BMCs report different chassis enumeration during power
+      // transitions (boards / modules / GPUs become visible or
+      // non-visible as physical power propagates). The collection
+      // queries are exact-URL invalidations — only the collection
+      // itself refetches; cached member-by-id queries do not get
+      // swept along. ServiceRoot stays cached either way.
       const { client, invalidatedUrls } = buildFakeClient();
       applySseEventInvalidation(client, chassisResetEvent('On'), RULES);
       const matched = invalidatedUrls();
+      expect(matched).toContain('/redfish/v1/Systems');
+      expect(matched).toContain('/redfish/v1/Chassis');
       expect(matched).not.toContain('/redfish/v1');
-      expect(matched).not.toContain('/redfish/v1/Systems');
-      expect(matched).not.toContain('/redfish/v1/Chassis');
     });
 
     it('does not invalidate unrelated subtrees (sessions, telemetry, account)', () => {
@@ -134,11 +137,13 @@ describe('applySseEventInvalidation', () => {
       expect(matched).not.toContain('/redfish/v1/TelemetryService/MetricReports');
     });
 
-    it('targets the Chassis-by-id when one is cached (cross-tree precision)', () => {
-      // With `getChassisById` registered, the rule resolves
-      // `/redfish/v1/Chassis/{1}` → `/redfish/v1/Chassis/System_0` and
-      // matches it precisely — without disturbing other Chassis-by-id
-      // entries. Demonstrated against a synthetic cache.
+    it('targets the affected Chassis-by-id and refreshes the collection without sweeping siblings', () => {
+      // With `getChassisById` registered, the rule resolves the
+      // subtree-match `/redfish/v1/Chassis/{1}` → `/redfish/v1/Chassis/System_0`
+      // (matches the affected member by-id) AND the exact-match
+      // `/redfish/v1/Chassis` (matches only the collection itself).
+      // Sibling Chassis-by-id queries (`Other`) are deliberately NOT
+      // matched by either predicate.
       REGISTRY['getChassisById'] = '/redfish/v1/Chassis/{ChassisId}';
       try {
         const queries: ReadonlyArray<FakeCachedQuery> = [
@@ -150,8 +155,8 @@ describe('applySseEventInvalidation', () => {
         applySseEventInvalidation(client, chassisResetEvent('On'), RULES);
         const matched = invalidatedUrls();
         expect(matched).toContain('/redfish/v1/Chassis/System_0');
+        expect(matched).toContain('/redfish/v1/Chassis');
         expect(matched).not.toContain('/redfish/v1/Chassis/Other');
-        expect(matched).not.toContain('/redfish/v1/Chassis');
       } finally {
         delete REGISTRY['getChassisById'];
       }
