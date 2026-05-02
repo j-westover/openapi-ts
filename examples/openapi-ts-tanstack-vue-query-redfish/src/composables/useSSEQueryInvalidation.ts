@@ -22,11 +22,11 @@ import {
   extractOriginOfCondition,
   isBufferExceededEvent,
   isHeartbeatEvent,
-  isQueryAncestorOf,
   isQueryUnder,
   isQueryUrlExactly,
   isResourceLifecycleEvent,
   parentPath,
+  resolveCaptureGroups,
   type SseInvalidationRule,
   stripActionsSuffix,
 } from '@/composables/sseInvalidationRules';
@@ -110,23 +110,29 @@ export function applySseEventInvalidation(
     return;
   }
 
-  // Fine-grained match against the URL embedded in every cached query
-  // key by `@hey-api/openapi-ts`'s `@tanstack/vue-query` plugin.
+  // Subtree invalidation rooted at the resource the event identifies.
   //
-  // We normalise `/Actions/...` off the origin before prefix-matching
-  // so an action endpoint's parent resource (the one the action runs
-  // on) is correctly seen as an ancestor. Without this, an event
-  // sourced at `/redfish/v1/Chassis/X/Actions/Chassis.Reset` would
-  // never invalidate the cached `Chassis/X` query, since the action
-  // path is a child of it, not a parent.
+  // We normalise `/Actions/<X>` off the origin first so an action
+  // endpoint maps to the resource the action runs on (`Chassis.Reset`
+  // on `/redfish/v1/Chassis/X/Actions/Chassis.Reset` ⇒ `Chassis/X`).
+  // The predicate `isQueryUnder(origin)` then matches the resource
+  // itself plus any cached sub-resource queries (e.g. `Chassis/X/Bios`
+  // when `Chassis/X` is the origin) — but it deliberately does NOT
+  // walk *upwards* to ancestors. A `ResourceChanged` on a leaf does
+  // not require its parent collections (or the ServiceRoot!) to
+  // refetch — the BMC is responsible for emitting separate events
+  // for any ancestor whose state actually depends on the leaf.
   const rawOrigin = extractOriginOfCondition(event);
   const origin = rawOrigin ? stripActionsSuffix(rawOrigin) : null;
 
   if (origin) {
     void queryClient.invalidateQueries({
-      predicate: (query) => isQueryAncestorOf(query.queryKey, origin),
+      predicate: (query) => isQueryUnder(query.queryKey, origin),
     });
 
+    // `ResourceCreated` / `ResourceRemoved` change collection
+    // membership — refresh the parent collection so list views
+    // surface the add/remove.
     if (isResourceLifecycleEvent(event)) {
       const parent = parentPath(origin);
       if (parent) {
@@ -139,10 +145,16 @@ export function applySseEventInvalidation(
 
   // Static rule registry — fires for events whose `OriginOfCondition`
   // does not (or cannot) lead the cache to the affected resources by
-  // prefix alone. A rule matches when *all* of its declared matchers
-  // (`messageIdPattern` / `messagePattern` / `originPattern` /
-  // `resourceTypes`) match; a rule with no matchers at all is ignored
-  // as a safety net.
+  // subtree alone (e.g. `Chassis.Reset`'s effect on the matching
+  // System resource in a parallel tree). A rule matches when *all* of
+  // its declared matchers (`messageIdPattern` / `messagePattern` /
+  // `originPattern` / `resourceTypes`) match; a rule with no matchers
+  // at all is ignored as a safety net.
+  //
+  // Rule `invalidate` URLs may reference capture groups from the
+  // matching `originPattern` via `{1}`, `{2}`, … placeholders so the
+  // rule can target a specific instance rather than an entire
+  // collection prefix.
   const messageId = event.MessageId ?? '';
   const message = typeof event.Message === 'string' ? event.Message : '';
   const resourceType = typeof event.ResourceType === 'string' ? event.ResourceType : null;
@@ -152,7 +164,13 @@ export function applySseEventInvalidation(
     if (!rule.messageIdPattern && !rule.messagePattern && !rule.originPattern) continue;
     if (rule.messageIdPattern && !rule.messageIdPattern.test(messageId)) continue;
     if (rule.messagePattern && !rule.messagePattern.test(message)) continue;
-    if (rule.originPattern && !rule.originPattern.test(originForRules)) continue;
+
+    let originMatch: RegExpMatchArray | null = null;
+    if (rule.originPattern) {
+      originMatch = rule.originPattern.exec(originForRules);
+      if (!originMatch) continue;
+    }
+
     if (
       rule.resourceTypes &&
       (resourceType === null || !rule.resourceTypes.includes(resourceType))
@@ -160,8 +178,10 @@ export function applySseEventInvalidation(
       continue;
     }
     for (const urlPrefix of rule.invalidate) {
+      const resolved = resolveCaptureGroups(urlPrefix, originMatch);
+      if (!resolved) continue; // unsubstituted `{N}` → drop, do not over-match.
       void queryClient.invalidateQueries({
-        predicate: (query) => isQueryUnder(query.queryKey, urlPrefix),
+        predicate: (query) => isQueryUnder(query.queryKey, resolved),
       });
     }
   }

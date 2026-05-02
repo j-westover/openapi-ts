@@ -79,6 +79,12 @@ function buildFakeClient(queries: ReadonlyArray<FakeCachedQuery> = FIXTURE_QUERI
 
 const RULES: ReadonlyArray<SseInvalidationRule> = DEFAULT_INVALIDATION_RULES;
 
+// Mutable view onto the URL registry so individual tests can inject
+// synthetic operation ids (e.g. `getChassisById`) without registering
+// them globally for the whole suite. Always pair a `REGISTRY[op]=...`
+// write with a `delete REGISTRY[op]` in a `try/finally`.
+const REGISTRY = REDFISH_OPERATION_URLS as Record<string, string>;
+
 describe('applySseEventInvalidation', () => {
   describe('*.Reset action events (id:151 Off / id:153 On — Chassis.Reset)', () => {
     function chassisResetEvent(value: 'Off' | 'On'): EventRecord {
@@ -98,48 +104,57 @@ describe('applySseEventInvalidation', () => {
     }
 
     it.each(['Off', 'On'] as const)(
-      'invalidates the System tree when ResetType=%s',
+      'targets the matching System-by-id only (no collection over-fetch) when ResetType=%s',
       (resetType) => {
         const { client, invalidatedUrls } = buildFakeClient();
         applySseEventInvalidation(client, chassisResetEvent(resetType), RULES);
-        expect(invalidatedUrls()).toEqual(
-          expect.arrayContaining([
-            '/redfish/v1',
-            '/redfish/v1/Systems',
-            '/redfish/v1/Systems/System_0',
-            '/redfish/v1/Chassis',
-          ]),
-        );
+        // The capture-group rule resolves `{1}` to `System_0` from
+        // the action's `/Chassis/<ID>/Actions/Chassis.Reset` segment.
+        // Only the System-by-id query in the fixture matches; the
+        // collections do not, the ServiceRoot does not, the
+        // (non-cached) Chassis-by-id does not.
+        expect(invalidatedUrls()).toContain('/redfish/v1/Systems/System_0');
       },
     );
 
-    it('does not invalidate unrelated subtrees (sessions, telemetry)', () => {
+    it('does NOT over-fetch ServiceRoot or the Systems / Chassis collections', () => {
       const { client, invalidatedUrls } = buildFakeClient();
       applySseEventInvalidation(client, chassisResetEvent('On'), RULES);
-      expect(invalidatedUrls()).not.toEqual(
-        expect.arrayContaining([
-          '/redfish/v1/SessionService/Sessions',
-          '/redfish/v1/TelemetryService/MetricReports',
-        ]),
-      );
+      const matched = invalidatedUrls();
+      expect(matched).not.toContain('/redfish/v1');
+      expect(matched).not.toContain('/redfish/v1/Systems');
+      expect(matched).not.toContain('/redfish/v1/Chassis');
     });
 
-    it('strips /Actions/ off the origin so the parent resource is reachable by ancestor match', () => {
-      // Synthetic cached Chassis-by-id query proves the strip; the
-      // real fixture omits chassis-by-id (no scoped `getChassisById`).
-      const queries: ReadonlyArray<FakeCachedQuery> = [
-        cached('getChassis', '/redfish/v1/Chassis'),
-        // Pretend a hypothetical scoped op exists; the engine only
-        // cares that `_id → URL-template` is in the registry, so
-        // hijack `getChassis` collection vs. an ancestor-style URL
-        // by injecting a synthetic op into FIXTURE-style data.
-        cached('getServiceRoot', '/redfish/v1'),
-      ];
-      const { client, invalidatedUrls } = buildFakeClient(queries);
+    it('does not invalidate unrelated subtrees (sessions, telemetry, account)', () => {
+      const { client, invalidatedUrls } = buildFakeClient();
       applySseEventInvalidation(client, chassisResetEvent('On'), RULES);
-      // ServiceRoot is an ancestor of the *stripped* origin.
-      expect(invalidatedUrls()).toContain('/redfish/v1');
-      expect(invalidatedUrls()).toContain('/redfish/v1/Chassis');
+      const matched = invalidatedUrls();
+      expect(matched).not.toContain('/redfish/v1/SessionService/Sessions');
+      expect(matched).not.toContain('/redfish/v1/TelemetryService/MetricReports');
+    });
+
+    it('targets the Chassis-by-id when one is cached (cross-tree precision)', () => {
+      // With `getChassisById` registered, the rule resolves
+      // `/redfish/v1/Chassis/{1}` → `/redfish/v1/Chassis/System_0` and
+      // matches it precisely — without disturbing other Chassis-by-id
+      // entries. Demonstrated against a synthetic cache.
+      REGISTRY['getChassisById'] = '/redfish/v1/Chassis/{ChassisId}';
+      try {
+        const queries: ReadonlyArray<FakeCachedQuery> = [
+          cached('getChassis', '/redfish/v1/Chassis'),
+          cached('getChassisById', '/redfish/v1/Chassis/System_0', { ChassisId: 'System_0' }),
+          cached('getChassisById', '/redfish/v1/Chassis/Other', { ChassisId: 'Other' }),
+        ];
+        const { client, invalidatedUrls } = buildFakeClient(queries);
+        applySseEventInvalidation(client, chassisResetEvent('On'), RULES);
+        const matched = invalidatedUrls();
+        expect(matched).toContain('/redfish/v1/Chassis/System_0');
+        expect(matched).not.toContain('/redfish/v1/Chassis/Other');
+        expect(matched).not.toContain('/redfish/v1/Chassis');
+      } finally {
+        delete REGISTRY['getChassisById'];
+      }
     });
   });
 
@@ -165,6 +180,11 @@ describe('applySseEventInvalidation', () => {
       'xyz.openbmc_project.State.Host.Info.HostTransition',
       'xyz.openbmc_project.State.BMC.Info.BMCStateChanged',
     ])('invalidates Systems + Chassis trees on %s', (signal) => {
+      // These messages do not carry an `OriginOfCondition` and the
+      // rule has no origin-pattern capture group to substitute, so it
+      // falls back to the broadest-safe scope (the whole Systems and
+      // Chassis subtrees). `isQueryUnder('/redfish/v1/Systems')`
+      // matches the collection AND any Systems-by-id query in cache.
       const { client, invalidatedUrls } = buildFakeClient();
       applySseEventInvalidation(client, openbmcStateEvent(signal), RULES);
       expect(invalidatedUrls()).toEqual(
@@ -176,15 +196,15 @@ describe('applySseEventInvalidation', () => {
       );
     });
 
-    it('does not invalidate ServiceRoot (no origin to ancestor-match)', () => {
+    it('does not invalidate ServiceRoot (no origin → no subtree walk)', () => {
       const { client, invalidatedUrls } = buildFakeClient();
       applySseEventInvalidation(
         client,
         openbmcStateEvent('xyz.openbmc_project.State.Info.ChassisPowerOnStarted'),
         RULES,
       );
-      // ServiceRoot is `/redfish/v1` — only reached when an origin
-      // is present (it is not under either Systems/Chassis prefix).
+      // ServiceRoot is `/redfish/v1` — neither inside the Systems
+      // nor Chassis subtree the rule targets.
       expect(invalidatedUrls()).not.toContain('/redfish/v1');
     });
 
@@ -244,7 +264,6 @@ describe('applySseEventInvalidation', () => {
 // (sensors, sub-collections) the example app does not currently scope.
 // The registry is restored after the suite finishes.
 
-const REGISTRY = REDFISH_OPERATION_URLS as Record<string, string>;
 const SYNTHETIC_OPS: ReadonlyArray<readonly [string, string]> = [
   ['getChassisById', '/redfish/v1/Chassis/{ChassisId}'],
   ['getChassisSensors', '/redfish/v1/Chassis/{ChassisId}/Sensors'],
@@ -266,7 +285,7 @@ describe('design-doc matrix', () => {
   });
 
   describe('per-instance targeting (BMC_0 vs BMC_1 isolation)', () => {
-    it('invalidates the BMC_0 chain and leaves BMC_1 untouched', () => {
+    it('targets only the leaf and leaves siblings + ancestors untouched', () => {
       const queries: ReadonlyArray<FakeCachedQuery> = [
         cached('getChassis', '/redfish/v1/Chassis'),
         cached('getChassisById', '/redfish/v1/Chassis/BMC_0', { ChassisId: 'BMC_0' }),
@@ -287,9 +306,42 @@ describe('design-doc matrix', () => {
         RULES,
       );
       const matched = invalidatedUrls();
+      // Subtree-from-origin: only the exact resource at origin (no
+      // descendants cached). Ancestors are NOT invalidated — the BMC
+      // is responsible for emitting separate events for any ancestor
+      // whose state actually depends on the leaf.
+      expect(matched).toEqual(expect.arrayContaining(['/redfish/v1/Chassis/BMC_0/Sensors/temp1']));
+      expect(matched).not.toContain('/redfish/v1/Chassis');
+      expect(matched).not.toContain('/redfish/v1/Chassis/BMC_0');
+      expect(matched).not.toContain('/redfish/v1/Chassis/BMC_0/Sensors');
+      expect(matched).not.toContain('/redfish/v1/Chassis/BMC_1');
+    });
+
+    it('invalidates cached descendants of the origin', () => {
+      // Origin is a parent (`/Chassis/BMC_0`). Cached descendants
+      // (a sub-resource and a deep leaf) should all refetch — the
+      // resource's state is being announced as changed.
+      const queries: ReadonlyArray<FakeCachedQuery> = [
+        cached('getChassisById', '/redfish/v1/Chassis/BMC_0', { ChassisId: 'BMC_0' }),
+        cached('getChassisSensors', '/redfish/v1/Chassis/BMC_0/Sensors', { ChassisId: 'BMC_0' }),
+        cached('getChassisSensorById', '/redfish/v1/Chassis/BMC_0/Sensors/temp1', {
+          ChassisId: 'BMC_0',
+          SensorId: 'temp1',
+        }),
+        cached('getChassisById', '/redfish/v1/Chassis/BMC_1', { ChassisId: 'BMC_1' }),
+      ];
+      const { client, invalidatedUrls } = buildFakeClient(queries);
+      applySseEventInvalidation(
+        client,
+        {
+          MessageId: 'ResourceEvent.1.0.ResourceChanged',
+          OriginOfCondition: { '@odata.id': '/redfish/v1/Chassis/BMC_0' },
+        },
+        RULES,
+      );
+      const matched = invalidatedUrls();
       expect(matched).toEqual(
         expect.arrayContaining([
-          '/redfish/v1/Chassis',
           '/redfish/v1/Chassis/BMC_0',
           '/redfish/v1/Chassis/BMC_0/Sensors',
           '/redfish/v1/Chassis/BMC_0/Sensors/temp1',
@@ -307,7 +359,7 @@ describe('design-doc matrix', () => {
       };
     }
 
-    it('also invalidates the parent collection so list views surface the add', () => {
+    it('invalidates the new resource AND the parent collection (so list views see the add)', () => {
       const queries: ReadonlyArray<FakeCachedQuery> = [
         cached('getServiceRoot', '/redfish/v1'),
         cached('getSystems', '/redfish/v1/Systems'),
@@ -318,16 +370,13 @@ describe('design-doc matrix', () => {
       applySseEventInvalidation(client, resourceCreatedEvent('/redfish/v1/Systems/system0'), RULES);
 
       const matched = invalidatedUrls();
-      // Origin itself + its ancestors (parent fires twice — once via
-      // ancestor-prefix, once via the lifecycle path — that is by
-      // design and produces the same observable invalidation).
+      // The new resource (subtree-from-origin) AND its parent
+      // (lifecycle-event branch). ServiceRoot is NOT invalidated —
+      // it is not under the origin and not the parent collection.
       expect(matched).toEqual(
-        expect.arrayContaining([
-          '/redfish/v1',
-          '/redfish/v1/Systems',
-          '/redfish/v1/Systems/system0',
-        ]),
+        expect.arrayContaining(['/redfish/v1/Systems', '/redfish/v1/Systems/system0']),
       );
+      expect(matched).not.toContain('/redfish/v1');
       expect(matched).not.toContain('/redfish/v1/Chassis');
     });
 
@@ -384,7 +433,7 @@ describe('design-doc matrix', () => {
   });
 
   describe('flat-string OriginOfCondition (vendor variant)', () => {
-    it('matches the same as the DMTF object shape', () => {
+    it('targets the same resource as the DMTF object shape', () => {
       const queries: ReadonlyArray<FakeCachedQuery> = [
         cached('getServiceRoot', '/redfish/v1'),
         cached('getSystems', '/redfish/v1/Systems'),
@@ -400,13 +449,11 @@ describe('design-doc matrix', () => {
         },
         RULES,
       );
-      expect(invalidatedUrls()).toEqual(
-        expect.arrayContaining([
-          '/redfish/v1',
-          '/redfish/v1/Systems',
-          '/redfish/v1/Systems/system0',
-        ]),
-      );
+      const matched = invalidatedUrls();
+      expect(matched).toEqual(expect.arrayContaining(['/redfish/v1/Systems/system0']));
+      // No ancestor walk — parent collection / ServiceRoot stay cached.
+      expect(matched).not.toContain('/redfish/v1');
+      expect(matched).not.toContain('/redfish/v1/Systems');
     });
   });
 

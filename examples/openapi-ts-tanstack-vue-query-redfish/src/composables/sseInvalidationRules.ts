@@ -35,7 +35,17 @@ import type { EventRecord } from './parseSSEEvent';
 export interface SseInvalidationRule {
   /**
    * URL prefixes whose cached queries should be invalidated when this
-   * rule matches. Matched against each cached query's resolved URL.
+   * rule matches. Matched against each cached query's resolved URL via
+   * `isQueryUnder` (the prefix itself + every cached descendant).
+   *
+   * Each entry may reference capture groups from the matching
+   * `originPattern` via `{1}`, `{2}`, … placeholders. A prefix whose
+   * placeholders cannot all be resolved is dropped (rather than left
+   * with a literal `{N}` that would never match anything anyway).
+   * This is what lets a single `Chassis.Reset` rule target the
+   * specific Chassis-by-id and the matching System-by-id without
+   * over-fetching the whole `/redfish/v1/Chassis` and
+   * `/redfish/v1/Systems` collections.
    */
   invalidate: ReadonlyArray<string>;
   /**
@@ -83,16 +93,26 @@ export const DEFAULT_INVALIDATION_RULES: readonly SseInvalidationRule[] = [
     ],
     messageIdPattern: /^Update\./,
   },
-  // Reset actions (`Chassis.Reset`, `ComputerSystem.Reset`, vendor
-  // `*.Reset` extensions). The BMC publishes these as
-  // `Base.*.PropertyValueModified` events whose `OriginOfCondition`
-  // is the action endpoint itself, but the actual state change
-  // (`PowerState`, `Status.State`) is visible on both the parent
-  // Chassis and the related System — neither of which is reachable
-  // from the action URL by prefix-matching alone.
+  // `Chassis.Reset` action — the BMC publishes a
+  // `Base.*.PropertyValueModified` event whose `OriginOfCondition`
+  // is the action endpoint itself. The state change is visible on
+  // both the parent Chassis (the action's target resource) AND the
+  // related System (where `PowerState` / `Status.State` live), in a
+  // parallel resource tree. By OpenBMC convention the System ID
+  // matches the Chassis ID, which lets us target both surgically
+  // via the captured `{1}` placeholder. Vendors that use a
+  // different ID mapping should add a follow-up rule with the
+  // correct correspondence.
   {
-    invalidate: ['/redfish/v1/Systems', '/redfish/v1/Chassis'],
-    originPattern: /\/Actions\/[\w-]+\.Reset(?:\?|$)/,
+    invalidate: ['/redfish/v1/Chassis/{1}', '/redfish/v1/Systems/{1}'],
+    originPattern: /\/Chassis\/([^/?]+)\/Actions\/[\w-]+\.Reset(?:\?|$)/,
+  },
+  // `ComputerSystem.Reset` action — the System ID is in the path.
+  // We also invalidate the matching Chassis-by-id by the same
+  // OpenBMC-convention reasoning as the Chassis.Reset rule above.
+  {
+    invalidate: ['/redfish/v1/Systems/{1}', '/redfish/v1/Chassis/{1}'],
+    originPattern: /\/Systems\/([^/?]+)\/Actions\/[\w-]+\.Reset(?:\?|$)/,
   },
   // OpenBMC state-change signals. Published as Redfish events with an
   // empty `MessageId` and the full D-Bus signal path in `Message`
@@ -162,6 +182,34 @@ export function extractOriginOfCondition(event: EventRecord): string | null {
   if (!origin) return null;
   if (typeof origin === 'string') return origin;
   return origin['@odata.id'] ?? null;
+}
+
+/**
+ * Substitute `{N}` placeholders in a rule's `invalidate` URL with
+ * capture groups from the matching `originPattern`.
+ *
+ *   resolveCaptureGroups('/redfish/v1/Systems/{1}', match)
+ *     where match[1] === 'System_0'  →  '/redfish/v1/Systems/System_0'
+ *
+ * Returns `null` when the URL contains an unfilled `{N}` placeholder
+ * (e.g. the rule referenced `{2}` but only one group was captured).
+ * The caller should drop the prefix in that case rather than risk a
+ * literal `{N}` reaching the predicate and over-matching.
+ */
+export function resolveCaptureGroups(url: string, match: RegExpMatchArray | null): string | null {
+  if (!url.includes('{')) return url;
+  let result = url;
+  let unfilled = false;
+  result = result.replace(/\{(\d+)\}/g, (_, n: string) => {
+    const idx = Number(n);
+    const value = match?.[idx];
+    if (value === undefined) {
+      unfilled = true;
+      return '';
+    }
+    return value;
+  });
+  return unfilled ? null : result;
 }
 
 /**
@@ -236,18 +284,11 @@ export function resolveQueryUrl(queryKey: unknown): string | null {
 }
 
 /**
- * True when the cached query's URL is a parent of (or equal to)
- * `origin`. This is the primary `OriginOfCondition` predicate.
- */
-export function isQueryAncestorOf(queryKey: unknown, origin: string): boolean {
-  const concrete = resolveQueryUrl(queryKey);
-  if (!concrete) return false;
-  return concrete === origin || origin.startsWith(`${concrete}/`);
-}
-
-/**
  * True when the cached query's URL lives under (or equals) `prefix`.
- * Used for the static rule table.
+ * The primary `OriginOfCondition` predicate (with `prefix === origin`,
+ * the origin URL itself becomes the subtree root) and the static
+ * rule-table predicate (with `prefix` resolved from each rule's
+ * `invalidate` entry, with capture groups already substituted).
  */
 export function isQueryUnder(queryKey: unknown, prefix: string): boolean {
   const concrete = resolveQueryUrl(queryKey);

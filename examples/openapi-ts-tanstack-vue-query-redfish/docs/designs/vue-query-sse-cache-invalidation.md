@@ -320,21 +320,37 @@ queryClient.invalidateQueries({
     const template = key?._id && REDFISH_OPERATION_URLS[key._id];
     if (!template) return false;
     const concrete = resolveUrlTemplate(template, key.path);
-    return concrete === originPath || originPath.startsWith(`${concrete}/`);
+    // Subtree-from-origin: the resource at `originPath` plus any
+    // cached sub-resource queries (e.g. Bios under a System). We
+    // deliberately do NOT walk *upwards* — see below.
+    return concrete === originPath || concrete.startsWith(`${originPath}/`);
   },
 });
 ```
 
 `resolveUrlTemplate` substitutes `{ChassisId}` with `path.ChassisId`,
-yielding the same concrete URL the BMC saw. Prefix matching is
-intentional: when `OriginOfCondition` points at
-`/redfish/v1/Chassis/BMC_0/Sensors/temp1`, _every_ parent collection
-query also gets invalidated (`/redfish/v1/Chassis`,
-`/redfish/v1/Chassis/BMC_0`, `/redfish/v1/Chassis/BMC_0/Sensors`,
-`/redfish/v1/Chassis/BMC_0/Sensors/temp1`). This is exactly what
-TanStack Query's hierarchical-prefix invalidation gives you for free
-when keys are path-shaped — we just rebuild it on top of the
-URL-bearing shape that `@hey-api/openapi-ts` actually emits.
+yielding the same concrete URL the BMC saw. The match is intentionally
+**subtree-from-origin**, not ancestor-prefix:
+
+- Origin = `/redfish/v1/Chassis/BMC_0/Sensors/temp1` invalidates
+  `temp1` itself, and any cached query at a deeper path
+  (`…/temp1/Steps`, etc.) — but **not** `/redfish/v1/Chassis/BMC_0`,
+  `/redfish/v1/Chassis`, or `/redfish/v1`.
+- Origin = `/redfish/v1/Chassis/BMC_0` invalidates the chassis itself,
+  every cached `…/BMC_0/<sub>` query (Sensors, Power, Bios, …), and
+  every leaf below — without disturbing `BMC_1`.
+
+The reason for refusing to walk ancestors is that a leaf change does
+not actually invalidate its ancestor's representation. Collection
+documents like `/redfish/v1/Chassis` are membership lists of
+`@odata.id`s — those URIs do not change because a sensor's reading
+ticked. A parent resource whose state genuinely depends on the leaf
+(for example a `Status.HealthRollup` aggregated from sensor health) is
+republished as a separate `ResourceChanged` event by the BMC, and
+that event invalidates the rollup-bearing query directly. Walking
+ancestors blindly would refetch the `ServiceRoot`, the collections,
+and every chassis member every time a single sensor reading changed —
+all wasted bandwidth.
 
 #### Step 3 — `ResourceCreated` / `ResourceRemoved` parent invalidation
 
@@ -346,9 +362,13 @@ list views immediately:
 MessageId:           ResourceEvent.1.0.ResourceCreated
 OriginOfCondition:   /redfish/v1/Systems/system0
 
-  → invalidate originPath itself
-  → also invalidate parent: '/redfish/v1/Systems'
+  → invalidate origin subtree: '/redfish/v1/Systems/system0' (+ children)
+  → also invalidate parent (exact match): '/redfish/v1/Systems'
 ```
+
+Only the parent — not every ancestor up to the root — because the
+collection containing the new member is the only resource whose
+membership has actually changed.
 
 #### Step 4 — static rule registry (escape hatch)
 
@@ -368,7 +388,10 @@ allow-list — match the event.
 
 ```ts
 type SseInvalidationRule = {
-  invalidate: ReadonlyArray<string>; // URL prefixes
+  // Each entry may reference capture groups from the matching
+  // `originPattern` via `{1}`, `{2}`, … placeholders so the rule
+  // can target a specific instance instead of an entire collection.
+  invalidate: ReadonlyArray<string>;
   // At least one of these matchers must be set.
   messageIdPattern?: RegExp; // e.g. /^TaskEvent\./
   messagePattern?: RegExp; // matched against `event.Message`
@@ -388,22 +411,32 @@ const RULES: ReadonlyArray<SseInvalidationRule> = [
     invalidate: ['/redfish/v1/UpdateService'],
     messageIdPattern: /^Update\./,
   },
-  // *.Reset actions (Chassis.Reset, ComputerSystem.Reset, vendor
-  // extensions) — the BMC publishes a `Base.*.PropertyValueModified`
-  // event with the action endpoint as the origin, but the actual
-  // state change is visible on both the parent Chassis and the
-  // related System, neither of which is reachable from the action
-  // URL by prefix-matching alone.
+  // `Chassis.Reset` action — the BMC publishes
+  // `Base.*.PropertyValueModified` with the action endpoint as the
+  // origin. The state change is visible on the parent Chassis (the
+  // action's target) AND the related System (where `PowerState` /
+  // `Status.State` live), in a parallel resource tree. The captured
+  // `{1}` placeholder targets both surgically — by OpenBMC convention
+  // the System ID matches the Chassis ID.
   {
-    invalidate: ['/redfish/v1/Systems', '/redfish/v1/Chassis'],
-    originPattern: /\/Actions\/[\w-]+\.Reset(?:\?|$)/,
+    invalidate: ['/redfish/v1/Chassis/{1}', '/redfish/v1/Systems/{1}'],
+    originPattern: /\/Chassis\/([^/?]+)\/Actions\/[\w-]+\.Reset(?:\?|$)/,
+  },
+  // `ComputerSystem.Reset` action — System ID is in the path. We
+  // also invalidate the matching Chassis-by-id by the same
+  // OpenBMC-convention reasoning as above.
+  {
+    invalidate: ['/redfish/v1/Systems/{1}', '/redfish/v1/Chassis/{1}'],
+    originPattern: /\/Systems\/([^/?]+)\/Actions\/[\w-]+\.Reset(?:\?|$)/,
   },
   // OpenBMC state-change signals — published with an empty MessageId
   // and the full D-Bus signal path in `Message`
   // (`xyz.openbmc_project.State.Info.ChassisPowerOnStarted`,
   // `…HostTransition…`, `…BMCStateChanged`, etc.). No
-  // `OriginOfCondition` is set, so prefix-matching cannot reach
-  // anything.
+  // `OriginOfCondition` is set, so subtree-from-origin cannot reach
+  // anything; this rule falls back to the broadest-safe scope. A
+  // future revision could narrow this by extracting the System ID
+  // from the event's `LogEntry` URL.
   {
     invalidate: ['/redfish/v1/Systems', '/redfish/v1/Chassis'],
     messagePattern: /^xyz\.openbmc_project\.State\./,
@@ -413,10 +446,20 @@ const RULES: ReadonlyArray<SseInvalidationRule> = [
 
 `originPattern` matches against the _raw_ `OriginOfCondition` (with
 the `/Actions/...` suffix intact), so the rule can target action
-endpoints specifically. The prefix-match in Step 2 still uses the
-_normalised_ origin (with `/Actions/...` stripped), so an action
-event also invalidates the resource the action runs on without
-having to declare a rule for it.
+endpoints specifically and capture the resource id from the action
+URL. The subtree-match in Step 2 still uses the _normalised_ origin
+(with `/Actions/...` stripped), so an action event also invalidates
+the resource the action runs on without having to declare a rule for
+it.
+
+A rule's `invalidate` URLs are matched against cached queries via the
+same subtree predicate as Step 2: each entry is treated as a subtree
+root, so `/redfish/v1/Chassis/{1}` resolved to
+`/redfish/v1/Chassis/System_0` matches the chassis-by-id query and
+any cached `/Chassis/System_0/<sub>` queries — but does **not**
+invalidate sibling chassis, the chassis collection, or the
+ServiceRoot. That precision is what keeps a `Chassis.Reset` event
+from triggering a four-deep tree refetch.
 
 Vendor extensions land in this table without touching the engine.
 
